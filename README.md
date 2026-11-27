@@ -6,7 +6,20 @@ It works by sending frames to a **virtual camera** ("OBS Virtual Camera"). The c
 
 There are two ways to run it: the **Hacker Cam desktop app** (`app.py`, macOS, Windows and Linux) or the **command-line script** (`hacker_intro.py`). Both have the same effects and hotkeys.
 
-## One-time setup
+## Install the app
+
+Download the installer for your system (built by GitHub Actions, see [packaging/README.md](packaging/README.md)) or build it yourself:
+
+| System | Installer | Notes |
+|---|---|---|
+| macOS (Apple Silicon) | `HackerCam-<version>-macos-arm64.dmg` | Open it and drag **Hacker Cam** to Applications. First launch: System Settings → Privacy & Security → **Open Anyway**. Allow **Camera**, and **Input Monitoring** for the hotkeys. |
+| Windows 10/11 | `HackerCam-<version>-windows-x64-setup.exe` | If SmartScreen warns, click **More info → Run anyway**. Starts in the system tray. |
+| Debian / Ubuntu | `hacker-cam_<version>_amd64.deb` | `sudo apt install ./hacker-cam_*.deb`, then run **Hacker Cam** from the app menu or `hacker-cam`. |
+| Other Linux | `HackerCam-<version>-linux-amd64.tar.gz` | Unpack it and run `HackerCam/HackerCam`. |
+
+You still need the virtual camera from OBS (macOS/Windows) or v4l2loopback (Linux): see step 1 below. The installers include everything else, and Python isn't needed.
+
+## One-time setup (running from source)
 
 ### macOS
 

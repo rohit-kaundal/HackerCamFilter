@@ -359,7 +359,21 @@ class HackerFilter:
 
 # ------------------------------------------------------------ vision (ML) ---
 
-MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
+# Inside a packaged app (PyInstaller) bundled files live under sys._MEIPASS.
+FROZEN = getattr(sys, "frozen", False)
+MODEL_DIR = os.path.join(getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__))),
+                         "models")
+
+
+def user_data_dir():
+    """Writable per-user folder (used by the packaged app for downloads)."""
+    if sys.platform == "darwin":
+        base = os.path.expanduser("~/Library/Application Support")
+    elif sys.platform == "win32":
+        base = os.environ.get("LOCALAPPDATA", os.path.expanduser("~"))
+    else:
+        base = os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
+    return os.path.join(base, "HackerCam")
 MODEL_URLS = {
     "face_landmarker.task": "https://storage.googleapis.com/mediapipe-models/"
                             "face_landmarker/face_landmarker/float16/latest/face_landmarker.task",
@@ -369,10 +383,15 @@ MODEL_URLS = {
 
 
 def model_path(name):
-    """Path to a MediaPipe model, downloading it on first use."""
+    """Path to a MediaPipe model, downloading it on first use if missing.
+    The packaged app ships the models; it never writes inside itself."""
     path = os.path.join(MODEL_DIR, name)
+    if os.path.exists(path):
+        return path
+    target_dir = os.path.join(user_data_dir(), "models") if FROZEN else MODEL_DIR
+    path = os.path.join(target_dir, name)
     if not os.path.exists(path):
-        os.makedirs(MODEL_DIR, exist_ok=True)
+        os.makedirs(target_dir, exist_ok=True)
         print(f"[+] Downloading model {name} (one time) ...")
         urllib.request.urlretrieve(MODEL_URLS[name], path + ".part")
         os.replace(path + ".part", path)
@@ -432,6 +451,18 @@ class Vision:
             return None
         self._tasks[kind] = task
         return task
+
+    def close(self):
+        """Release the MediaPipe tasks now, not during interpreter shutdown
+        (where their destructors fail noisily)."""
+        with self._lock:
+            tasks, self._tasks = self._tasks, {}
+            self._failed.update(tasks)        # don't reload after closing
+        for task in tasks.values():
+            try:
+                task.close()
+            except Exception:
+                pass
 
     @staticmethod
     def _mp_image(frame):
@@ -1291,6 +1322,7 @@ class Engine:
         }
 
     def close(self):
+        self.vision.close()
         with self._io_lock:
             if self.webcam is not None:
                 self.webcam.close()

@@ -10,6 +10,7 @@ keep working while the call app is focused. In Zoom/Teams/Meet, pick
     python app.py            # starts in the menu bar / tray
     python app.py --window   # also opens the window
 """
+import os
 import sys
 import threading
 
@@ -24,6 +25,7 @@ from PySide6.QtWidgets import (
 
 import hacker_intro as hi
 
+__version__ = "1.0.0"
 GREEN = "#46ff46"
 STYLE = """
 QWidget { background: #070b07; color: #b8f5b8;
@@ -615,11 +617,76 @@ class MainWindow(QMainWindow):
             self.tray.hide()
 
 
+def self_test():
+    """Exercise the parts that break when packaging (MediaPipe models and native
+    library, OpenCV, Qt, virtual-camera and hotkey modules) without touching
+    the webcam or the virtual camera. Exit code 0 = OK. Used by the build."""
+    import importlib
+    import tempfile
+    import time
+    import traceback
+    if sys.stdout is None:   # windowed build on Windows: no console to print to
+        sys.stdout = sys.stderr = open(
+            os.path.join(tempfile.gettempdir(), "hackercam-selftest.txt"), "w")
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    try:
+        app = QApplication(sys.argv)
+        make_icon(True)
+        h, w = 720, 1280
+        yy, xx = np.mgrid[0:h, 0:w]
+        img = np.dstack([xx % 256, yy % 256, (xx + yy) % 256]).astype(np.uint8)
+
+        class StubWebcam:
+            ok = True
+            def get(self): return img.copy()
+            def close(self): pass
+
+        e = hi.Engine(log=lambda *a: None)
+        e.webcam = StubWebcam()
+        steps = [("intro", lambda: e.command("replay")),
+                 ("filter", lambda: e.command("filter")),
+                 ("matrix", lambda: e.command("matrix")),
+                 ("trace", lambda: e.command("trace")),
+                 ("hologram", lambda: e.command("hologram")),
+                 ("scan", lambda: e.command("scan")),
+                 ("entrance", lambda: e.command("entrance")),
+                 ("away", lambda: e.command("away"))]
+        t = time.monotonic()
+        for name, start in steps:
+            start()
+            for _ in range(15):
+                t += 1 / 30
+                e._handle_commands(t)
+                frame = e.step(t)
+                assert frame.shape == (h, w, 3), name
+            print(f"  ok  {name}")
+        assert e.vision.segment(img) is not None, "segmentation model failed"
+        e.vision._get("face")
+        assert "face" in e.vision._tasks, "face model failed"
+        print("  ok  mediapipe models")
+        for mod in ("pyvirtualcam", "pynput.keyboard", "PySide6.QtMultimedia"):
+            importlib.import_module(mod)
+            print(f"  ok  import {mod}")
+        e.close()
+        print(f"SELF-TEST OK (Hacker Cam {__version__})")
+        return 0
+    except Exception:
+        traceback.print_exc()
+        print("SELF-TEST FAILED")
+        return 1
+
+
 def main():
+    if "--self-test" in sys.argv:
+        sys.exit(self_test())
+    if "--version" in sys.argv:
+        print(__version__)
+        return
     app = QApplication(sys.argv)
     app.setApplicationName("Hacker Cam")
     app.setStyleSheet(STYLE)
     app.setFont(QFont("Menlo" if sys.platform == "darwin" else "Consolas", 12))
+    app.setWindowIcon(make_icon(False))
     app.setQuitOnLastWindowClosed(False)        # keep running in the menu bar / tray
     win = MainWindow()
     if win.tray is None or "--window" in sys.argv or win.window_check.isChecked():
