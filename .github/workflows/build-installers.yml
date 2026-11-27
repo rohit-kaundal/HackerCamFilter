@@ -89,6 +89,8 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') || inputs.publish
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the release and its tag
     steps:
       - uses: actions/checkout@v4
 
@@ -119,7 +121,10 @@ jobs:
           merge-multiple: true
 
       - uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         with:
+          token: ${{ github.token }}
           tag_name: ${{ steps.tag.outputs.tag }}
           target_commitish: ${{ github.sha }}   # creates the tag here if it doesn't exist
           name: Hacker Cam ${{ steps.tag.outputs.tag }}
