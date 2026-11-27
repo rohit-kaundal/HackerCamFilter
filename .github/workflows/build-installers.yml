@@ -1,14 +1,21 @@
 name: Build installers
 
-# Run by hand from the Actions tab, or push a tag like v1.0.0 to also publish
-# the installers on a GitHub Release.
+# Builds the installers on macOS, Windows and Linux. They're published as a
+# GitHub Release (tag v<version>, version from __version__ in app.py) when:
+#   - you push a tag like v1.0.2, or
+#   - you run it from the Actions tab with "Publish a GitHub Release" ticked.
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish a GitHub Release (tag v<version from app.py>)"
+        type: boolean
+        default: false
   push:
     tags: ["v*"]
 
 permissions:
-  contents: write   # needed to create the release on tags
+  contents: write   # needed to create the release and its tag
 
 jobs:
   build:
@@ -79,15 +86,42 @@ jobs:
           if-no-files-found: error
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.publish
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Work out the release tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' app.py)"
+          TAG="v${VERSION}"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            # Pushed tag: it must match the version the installers were built with.
+            if [ "${GITHUB_REF_NAME}" != "${TAG}" ]; then
+              echo "::error::Tag ${GITHUB_REF_NAME} doesn't match __version__ ${VERSION} in app.py. Bump the version or fix the tag."
+              exit 1
+            fi
+          elif gh release view "${TAG}" >/dev/null 2>&1; then
+            # Run from the Actions tab: never overwrite a published release.
+            echo "::error::Release ${TAG} already exists. Bump __version__ in app.py first."
+            exit 1
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Publishing ${TAG}"
+
       - uses: actions/download-artifact@v4
         with:
           path: installers
           merge-multiple: true
+
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          target_commitish: ${{ github.sha }}   # creates the tag here if it doesn't exist
+          name: Hacker Cam ${{ steps.tag.outputs.tag }}
           files: installers/*
           generate_release_notes: true

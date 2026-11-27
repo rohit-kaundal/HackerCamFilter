@@ -6,7 +6,7 @@
 | Windows | `HackerCam-<version>-windows-x64-setup.exe` | Windows |
 | Linux | `hacker-cam_<version>_amd64.deb` and `HackerCam-<version>-linux-amd64.tar.gz` | Linux (Debian/Ubuntu) |
 
-PyInstaller can't cross-compile, so each installer is built on its own OS. The GitHub Actions workflow (`.github/workflows/build-installers.yml`) builds all three: run it from the **Actions** tab, or push a tag like `v1.0.0` to also publish them on a GitHub Release.
+PyInstaller can't cross-compile, so each installer is built on its own OS. The GitHub Actions workflow (`.github/workflows/build-installers.yml`) builds all three: run it from the **Actions** tab. To publish them as a GitHub Release, either tick **Publish a GitHub Release** when you run it, or push a tag that matches `__version__` in `app.py` (for example `v1.0.2`). Bump the version first: the workflow refuses to overwrite a release that already exists.
 
 ## Building locally
 
