@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hacker Cam: stop being one of nine identical rectangles</title>
+  <meta name="description" content="Hacker Cam turns your webcam into a cinematic hacker feed for Zoom, Teams, Meet and any call app: a matrix intro, hologram mode, live world-trace background and more. Runs locally on macOS, Windows and Linux.">
+  <meta property="og:title" content="Hacker Cam: make the room remember you">
+  <meta property="og:description" content="A cinematic hacker intro and live effects for every video call. One-time purchase. Runs 100% on your machine.">
+  <meta property="og:image" content="assets/social-card.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#050805">
+  <link rel="icon" href="assets/icon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="nav">
+    <div class="wrap nav__inner">
+      <a class="brand" href="#top" aria-label="Hacker Cam home">
+        <span class="brand__mark" aria-hidden="true">&gt;_</span> Hacker Cam
+      </a>
+      <nav aria-label="Main">
+        <a href="#problem">The problem</a>
+        <a href="#effects">Effects</a>
+        <a href="#how">How it works</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <a class="btn btn--small js-buy" href="#pricing">Get Hacker Cam</a>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- 1. HERO: lead with the problem, show the answer working -->
+    <section class="hero" id="top">
+      <div class="wrap hero__grid">
+        <div class="hero__copy">
+          <p class="eyebrow">For people who present, teach, sell and lead on camera</p>
+          <h1>On a call, you're one of nine <span class="hl">identical rectangles.</span></h1>
+          <p class="lede">Same webcam. Same blurred bookshelf. Same <em>"can you hear me?"</em>. Your expertise is invisible until you've talked long enough to earn attention. Hacker Cam makes your camera do the introduction, so the room remembers you <strong>before you say a word</strong>.</p>
+          <div class="cta-row">
+            <a class="btn js-buy" href="#pricing">Get Hacker Cam · <span class="js-price">$29</span></a>
+            <a class="btn btn--ghost" href="#effects">See the effects ↓</a>
+          </div>
+          <p class="fine">One-time purchase · macOS, Windows &amp; Linux · Works with Zoom, Teams, Meet and any app with a camera picker</p>
+        </div>
+
+        <figure class="hero__demo">
+          <div class="tile" aria-label="Live demo of the Hacker Cam intro">
+            <canvas id="demo" width="1280" height="720"></canvas>
+            <span class="tile__name"><span class="dot" aria-hidden="true"></span><span class="js-demo-label">Your Name</span></span>
+            <span class="tile__mic" aria-hidden="true">●</span>
+          </div>
+          <label class="try">
+            <span>Try it: type your name</span>
+            <input id="demo-name" type="text" maxlength="22" placeholder="Your Name" autocomplete="off">
+          </label>
+          <figcaption class="fine">A browser re-creation of the intro. The app renders it live, into your real call.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 2. PROBLEM: name it precisely -->
+    <section class="problem" id="problem">
+      <div class="wrap problem__grid">
+        <div class="gallery" aria-hidden="true">
+          <div class="cell"><span>Can you hear me?</span></div>
+          <div class="cell"><span>You're on mute</span></div>
+          <div class="cell"><span>Camera off</span></div>
+          <div class="cell"><span>Sorry, go ahead</span></div>
+          <div class="cell cell--you"><img src="assets/intro-granted.jpg" alt=""><span>You</span></div>
+          <div class="cell"><span>Is my screen showing?</span></div>
+          <div class="cell"><span>Blurred bookshelf</span></div>
+          <div class="cell"><span>Frozen</span></div>
+          <div class="cell"><span>Brb</span></div>
+        </div>
+        <div>
+          <p class="eyebrow">The problem</p>
+          <h2>Video calls flatten everyone into the same small box.</h2>
+          <p>In a room, people notice how you walk in. On a call there is no walk-in, just a grid. The person who has spent ten years in security looks exactly like the person who joined yesterday. Everyone gets the same rectangle, the same lighting and the same opening line.</p>
+          <p class="statement">If what you know is your edge, a call that makes you look like everyone else is a tax on that edge.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. COST: why it matters -->
+    <section class="cost">
+      <div class="wrap">
+        <p class="eyebrow center">What it quietly costs you</p>
+        <h2 class="center">Forgettable isn't neutral. It's expensive.</h2>
+        <div class="cards cards--3">
+          <article class="card">
+            <h3>Openings go to waste</h3>
+            <p>The first moments of a talk, demo or kickoff are when attention is highest. On most calls they're spent on audio checks and "let me share my screen".</p>
+          </article>
+          <article class="card">
+            <h3>Expertise stays invisible</h3>
+            <p>Your background, your craft and your personality don't show up in a webcam tile. You have to talk your way into being taken seriously, every single call.</p>
+          </article>
+          <article class="card">
+            <h3>Meetings blur together</h3>
+            <p>A week of identical calls leaves no memory of who said the sharp thing. If people can't picture you, they can't remember you, recommend you or invite you back.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. SOLUTION -->
+    <section class="solution">
+      <div class="wrap solution__grid">
+        <div>
+          <p class="eyebrow">The fix</p>
+          <h2>Turn your camera into a stage, without changing your setup.</h2>
+          <p>Hacker Cam sits between your webcam and your call app. It adds cinematic effects in real time and hands the result to the call as an ordinary camera. You stay you, now with an entrance.</p>
+          <ul class="ticks">
+            <li><strong>Works everywhere:</strong> Zoom, Microsoft Teams, Google Meet, Webex, Slack, Discord and any app that lets you pick a camera.</li>
+            <li><strong>One click or one keystroke:</strong> every effect is in your menu bar, and on global hotkeys that work mid-call.</li>
+            <li><strong>Private by design:</strong> all processing happens on your computer. No account, no cloud, no uploads.</li>
+          </ul>
+        </div>
+        <div class="strip" aria-label="The intro sequence in four steps">
+          <figure><img src="assets/intro-rain.jpg" alt="Green matrix code rain filling the frame" loading="lazy"><figcaption>01 · Matrix rain</figcaption></figure>
+          <figure><img src="assets/intro-terminal.jpg" alt="Terminal window typing a mock breach log" loading="lazy"><figcaption>02 · Breach log</figcaption></figure>
+          <figure><img src="assets/intro-granted.jpg" alt="ACCESS GRANTED in glowing green, glitching" loading="lazy"><figcaption>03 · Access granted</figcaption></figure>
+          <figure><img src="assets/intro-name.jpg" alt="IDENTITY CONFIRMED, then YOUR NAME and a job title" loading="lazy"><figcaption>04 · Your name, then your live camera</figcaption></figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. EFFECTS -->
+    <section class="effects" id="effects">
+      <div class="wrap">
+        <p class="eyebrow center">Everything in the box</p>
+        <h2 class="center">Eight effects. Mix and stack them live.</h2>
+
+        <h3 class="group">Moments: play once, at exactly the right time</h3>
+        <div class="cards cards--2">
+          <article class="fx">
+            <div class="fx__media"><img src="assets/intro-terminal.jpg" alt="Hacker intro: a terminal breach log over matrix rain" loading="lazy"></div>
+            <div class="fx__body"><h4>Hacker intro <kbd class="js-key" data-k="H">⌃⌥H</kbd></h4>
+              <p>Matrix rain, a typed breach log, ACCESS GRANTED, then your name and title before it cuts to your live camera. About ten seconds that set the tone for the whole call.</p></div>
+          </article>
+          <article class="fx">
+            <div class="fx__media demo demo--entrance" aria-label="Illustration: a figure assembling from falling particles"><div class="sil"></div><div class="particles"></div></div>
+            <div class="fx__body"><h4>Particle entrance <kbd class="js-key" data-k="E">⌃⌥E</kbd></h4>
+              <p>Start on a black <em>INCOMING SIGNAL</em> screen. On cue, you assemble out of falling particles, head first, and your room fades in behind you.</p></div>
+          </article>
+          <article class="fx">
+            <div class="fx__media demo demo--scan" aria-label="Illustration: a biometric face scan with brackets and a laser line"><div class="sil"></div><div class="brackets"></div><div class="laser"></div><div class="panel">BIOMETRIC MATCH 99.4%<br><span>CLEARANCE LEVEL 5</span></div></div>
+            <div class="fx__body"><h4>Biometric scan <kbd class="js-key" data-k="B">⌃⌥B</kbd></h4>
+              <p>Brackets lock onto your actual face, a laser sweep draws a live face mesh, and a panel confirms <em>BIOMETRIC MATCH</em> with your name. It tracks you as you move.</p></div>
+          </article>
+          <article class="fx">
+            <div class="fx__media"><img src="assets/away.jpg" alt="Away screen: padlock, SESSION SUSPENDED and an away timer" loading="lazy"></div>
+            <div class="fx__body"><h4>Away screen <kbd class="js-key" data-k="A">⌃⌥A</kbd></h4>
+              <p>Need a minute? Your video scrambles into hex and becomes <em>SESSION SUSPENDED</em> with a running timer. Press again to decrypt back in. Your camera is hidden while it's on.</p></div>
+          </article>
+        </div>
+
+        <h3 class="group">Looks: leave them on while you talk</h3>
+        <div class="cards cards--2">
+          <article class="fx">
+            <div class="fx__media"><img src="assets/trace-located.jpg" alt="World map background with a network trace hopping between cities" loading="lazy"></div>
+            <div class="fx__body"><h4>Global trace background <kbd class="js-key" data-k="T">⌃⌥T</kbd></h4>
+              <p>A dot-matrix world map behind you, where a live trace hops city to city with IPs and latency, locks on a target, then starts a new route.</p></div>
+          </article>
+          <article class="fx">
+            <div class="fx__media"><img src="assets/matrix.jpg" alt="Falling green matrix code used as a background" loading="lazy"></div>
+            <div class="fx__body"><h4>Matrix background <kbd class="js-key" data-k="M">⌃⌥M</kbd></h4>
+              <p>Everything behind you becomes falling code, with a neon edge glow around you. You stay in full colour, sharp and in front.</p></div>
+          </article>
+          <article class="fx">
+            <div class="fx__media demo demo--holo" aria-label="Illustration: a translucent cyan hologram figure"><div class="sil"></div><div class="emitter"></div></div>
+            <div class="fx__body"><h4>Hologram mode <kbd class="js-key" data-k="O">⌃⌥O</kbd></h4>
+              <p>You become a translucent, flickering cyan projection with rolling scanlines and a projector glow. It works over your room or either background.</p></div>
+          </article>
+          <article class="fx">
+            <div class="fx__media demo demo--filter" aria-label="Illustration: a green phosphor security-feed look with REC label"><div class="sil"></div><span class="rec">● REC [ SECURE CHANNEL ]</span></div>
+            <div class="fx__body"><h4>Hacker filter <kbd class="js-key" data-k="G">⌃⌥G</kbd></h4>
+              <p>Green-phosphor monitor look: scanlines, static, a rolling tracking band, glitch bursts and a REC overlay. Instant 1995 hacker energy.</p></div>
+          </article>
+        </div>
+        <p class="fine center">Screenshots of the intro, away screen and backgrounds are real frames rendered by Hacker Cam. Effects that need a person are illustrated.</p>
+      </div>
+    </section>
+
+    <!-- 6. USE CASES -->
+    <section class="uses">
+      <div class="wrap">
+        <p class="eyebrow center">Where it lands</p>
+        <h2 class="center">Made for the calls you want people to remember.</h2>
+        <div class="cards cards--3">
+          <article class="card"><h3>Talks &amp; webinars</h3><p>Open a remote talk with the intro instead of "can everyone see my slides?" and you have the room from second one.</p></article>
+          <article class="card"><h3>Security trainings &amp; CTFs</h3><p>Kick off a CTF, a red-team debrief or an awareness session with the right atmosphere. The global trace is made for it.</p></article>
+          <article class="card"><h3>Demos &amp; client calls</h3><p>Give a product demo an entrance. The biometric scan with your name and title is an introduction nobody forgets.</p></article>
+          <article class="card"><h3>Team rituals</h3><p>Turn standups, all-hands and Friday demos into something people look forward to. The away screen alone earns a laugh.</p></article>
+          <article class="card"><h3>Streams &amp; community calls</h3><p>Any app that reads a camera works, so your stream overlay is a keystroke away, with no scene editing.</p></article>
+          <article class="card"><h3>Teaching</h3><p>Students remember the class that started with ACCESS GRANTED. Use the moments to mark the start of each section.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. HOW IT WORKS -->
+    <section class="how" id="how">
+      <div class="wrap">
+        <p class="eyebrow center">How it works</p>
+        <h2 class="center">Set up once in five minutes. Use it on every call.</h2>
+        <ol class="steps">
+          <li><span class="steps__n">1</span><h3>Install Hacker Cam</h3><p>Download the installer for macOS, Windows or Linux. It includes everything, and you don't need Python or any technical setup.</p></li>
+          <li><span class="steps__n">2</span><h3>Turn on the virtual camera</h3><p>Install the free OBS Studio and click <em>Start Virtual Camera</em> once (on Linux, load v4l2loopback). You don't need OBS open after that.</p></li>
+          <li><span class="steps__n">3</span><h3>Pick it in your call app</h3><p>Choose <em>OBS Virtual Camera</em> in Zoom, Teams or Meet. Then trigger effects from the <code>&gt;_</code> menu bar icon or with hotkeys.</p></li>
+        </ol>
+        <div class="menubar" aria-label="The Hacker Cam menu">
+          <div class="menubar__top"><span class="brand__mark">&gt;_</span><span class="menubar__live">● LIVE → OBS Virtual Camera · 30 fps</span></div>
+          <ul>
+            <li>▶ Play intro <kbd class="js-key" data-k="H">⌃⌥H</kbd></li>
+            <li>⚡ Entrance <kbd class="js-key" data-k="E">⌃⌥E</kbd></li>
+            <li>◎ Biometric scan <kbd class="js-key" data-k="B">⌃⌥B</kbd></li>
+            <li>⏸ Away screen <kbd class="js-key" data-k="A">⌃⌥A</kbd></li>
+            <li class="sep">✓ Hacker filter <kbd class="js-key" data-k="G">⌃⌥G</kbd></li>
+            <li>Hologram <kbd class="js-key" data-k="O">⌃⌥O</kbd></li>
+            <li>Background ▸</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. PRIVACY -->
+    <section class="privacy">
+      <div class="wrap privacy__inner">
+        <div class="lock" aria-hidden="true"></div>
+        <div>
+          <h2>Your camera never leaves your computer.</h2>
+          <p>Background removal and face tracking run on-device. Hacker Cam has no accounts, no analytics and no servers. Your video goes from your webcam to Hacker Cam to your call app, and nowhere else.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. OFFER -->
+    <section class="pricing" id="pricing">
+      <div class="wrap">
+        <p class="eyebrow center">One price, everything included</p>
+        <h2 class="center">Stop blending in on calls.</h2>
+        <div class="offer">
+          <div class="offer__head">
+            <span class="offer__name">Hacker Cam</span>
+            <span class="offer__price js-price">$29</span>
+            <span class="offer__terms">one-time · no subscription</span>
+          </div>
+          <ul class="ticks">
+            <li>All 8 effects: intro, entrance, biometric scan, away screen, hacker filter, hologram, matrix and global-trace backgrounds</li>
+            <li>Your name and title in the intro and the scan</li>
+            <li>Menu bar app plus global hotkeys that work mid-call</li>
+            <li>macOS (Apple Silicon), Windows 10/11 and Linux installers</li>
+            <li>Works with any app that lets you choose a camera</li>
+            <li>Runs 100% locally: no account, no cloud</li>
+          </ul>
+          <a class="btn btn--wide js-buy" href="#pricing">Get Hacker Cam · <span class="js-price">$29</span></a>
+          <p class="fine center">Requires the free OBS Studio 30+ (macOS/Windows) or v4l2loopback (Linux) for the virtual camera.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10. FAQ -->
+    <section class="faq" id="faq">
+      <div class="wrap wrap--narrow">
+        <h2 class="center">Questions</h2>
+        <details><summary>Which call apps does it work with?</summary>
+          <p>Any app that lets you choose a camera: Zoom, Microsoft Teams, Google Meet (in Chrome, Edge or Firefox), Webex, Slack huddles, Discord, FaceTime and more. Hacker Cam shows up as <em>OBS Virtual Camera</em>. Apps that don't let you pick a camera can't use it.</p></details>
+        <details><summary>Why do I need OBS?</summary>
+          <p>Operating systems don't let apps create a camera on their own. OBS Studio (free and open source) installs a trusted virtual-camera driver. You click <em>Start Virtual Camera</em> once to set it up, and after that you never need to open OBS again.</p></details>
+        <details><summary>Will it slow my computer down?</summary>
+          <p>It's built to render 30 frames per second on a typical laptop. Plain webcam pass-through is very light. Background removal and face tracking use more CPU while they're on.</p></details>
+        <details><summary>Is my video uploaded anywhere?</summary>
+          <p>No. Everything runs on your machine. Hacker Cam has no accounts, no analytics and no servers.</p></details>
+        <details><summary>Can I trigger effects without leaving the call?</summary>
+          <p>Yes. Global hotkeys (<kbd class="js-key" data-k="H">⌃⌥H</kbd> and friends) work while your call app is in front. On macOS, allow Input Monitoring once when asked.</p></details>
+        <details><summary>Can I combine effects?</summary>
+          <p>Yes. For example, hologram over the world-trace map, the hacker filter over the matrix background, or a biometric scan on top of either.</p></details>
+        <details><summary>What do I see on my own screen?</summary>
+          <p>Your call app's self-view shows exactly what others see. Hacker Cam's window also has a live preview, if you want to rehearse before a call.</p></details>
+      </div>
+    </section>
+
+    <!-- 11. CLOSE: restate the problem, then the answer -->
+    <section class="close">
+      <div class="wrap center">
+        <h2>Nine rectangles. One of them is <span class="hl">unforgettable.</span></h2>
+        <p class="lede">Make it yours.</p>
+        <a class="btn js-buy" href="#pricing">Get Hacker Cam · <span class="js-price">$29</span></a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot__inner">
+      <span><span class="brand__mark">&gt;_</span> Hacker Cam</span>
+      <span class="fine">Zoom, Microsoft Teams, Google Meet and other product names are trademarks of their owners. Hacker Cam is not affiliated with or endorsed by them. World map data: Natural Earth (public domain).</span>
+    </div>
+  </footer>
+
+  <script src="main.js"></script>
+</body>
+</html>
