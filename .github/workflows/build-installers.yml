@@ -120,11 +120,14 @@ jobs:
           path: installers
           merge-multiple: true
 
+      # Uses the RELEASE_TOKEN secret if you add one (a fine-grained personal
+      # access token for this repo with Contents: Read and write), for when the
+      # built-in token isn't allowed to create releases. Otherwise the built-in token.
       - uses: softprops/action-gh-release@v2
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
         with:
-          token: ${{ github.token }}
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
           tag_name: ${{ steps.tag.outputs.tag }}
           target_commitish: ${{ github.sha }}   # creates the tag here if it doesn't exist
           name: Hacker Cam ${{ steps.tag.outputs.tag }}
