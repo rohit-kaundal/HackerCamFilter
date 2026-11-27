@@ -20,6 +20,14 @@ hiddenimports = (collect_submodules("mediapipe.tasks.python")
                  + collect_submodules("pynput")
                  + collect_submodules("pyvirtualcam")
                  + ["certifi"])           # CA certificates for the optional usage stats
+if sys.platform.startswith("linux"):
+    # pynput's X11 backend connects to the X server when imported, so on a
+    # headless build machine collect_submodules() fails to import it and
+    # silently leaves it out. Listed by name, PyInstaller bundles it without
+    # importing it. (pynput imports both keyboard and mouse.)
+    hiddenimports += ["pynput.keyboard._xorg", "pynput.mouse._xorg",
+                      "pynput._util.xorg", "pynput._util.xorg_keysyms"]
+    hiddenimports += collect_submodules("Xlib")
 
 # Big libraries the app never imports. (Not matplotlib: mediapipe imports it.)
 excludes = ["tkinter", "IPython", "jax", "jaxlib", "sounddevice",
