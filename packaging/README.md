@@ -38,7 +38,7 @@ The version comes from `__version__` in `app.py`.
 
 The builds are not signed with a developer certificate. That works, but the first launch shows a warning:
 
-- **macOS:** the app is ad-hoc signed. If you downloaded the DMG, macOS blocks the first launch. Go to System Settings → Privacy & Security → **Open Anyway**, or run `xattr -dr com.apple.quarantine "/Applications/Hacker Cam.app"`. Every rebuild counts as a new app to macOS, so it asks for the camera and Input Monitoring permissions again.
+- **macOS:** the app is ad-hoc signed. If you downloaded the DMG, macOS 15 reports it as "damaged" and offers no Open Anyway button. Run `/usr/bin/xattr -dr com.apple.quarantine "/Applications/Hacker Cam.app"` once. Only a Developer ID signature plus notarization (Apple Developer Program) removes this step. Every rebuild counts as a new app to macOS, so it asks for the camera and Input Monitoring permissions again.
 - **Windows:** SmartScreen says "Windows protected your PC". Click **More info → Run anyway**.
 
 To sign properly, set `codesign_identity` in `hacker_cam.spec` to your "Developer ID Application" identity and notarize the DMG with `xcrun notarytool`. On Windows, sign the setup `.exe` with `signtool`.

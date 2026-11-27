@@ -14,12 +14,18 @@ Download the installer for your system from the [latest release]({{ site.github_
 
 | System | File | Notes |
 |---|---|---|
-| macOS (Apple Silicon) | `HackerCam-<version>-macos-arm64.dmg` | Open it and drag **Hacker Cam** to Applications. First launch: System Settings → Privacy & Security → **Open Anyway**. Allow **Camera**, and **Input Monitoring** for the hotkeys. |
+| macOS (Apple Silicon) | `HackerCam-<version>-macos-arm64.dmg` | Open it and drag **Hacker Cam** to Applications. Before the first launch, run `/usr/bin/xattr -dr com.apple.quarantine "/Applications/Hacker Cam.app"` in Terminal (see below). Allow **Camera**, and **Input Monitoring** for the hotkeys. |
 | Windows 10/11 | `HackerCam-<version>-windows-x64-setup.exe` | If SmartScreen warns, click **More info → Run anyway**. Starts in the system tray. |
 | Debian / Ubuntu | `hacker-cam_<version>_amd64.deb` | `sudo apt install ./hacker-cam_*.deb`, then run **Hacker Cam** from the app menu. |
 | Other Linux | `HackerCam-<version>-linux-amd64.tar.gz` | Unpack it and run `HackerCam/HackerCam`. Needs the OpenGL ES/EGL libraries and the PulseAudio client library (`libgles2`, `libegl1` and `libpulse0` on Debian/Ubuntu; `libglvnd-gles`, `libglvnd-egl` and `pulseaudio-libs` on Fedora). Most desktops already have them. |
 
 The installers include everything. You don't need Python.
+
+**macOS says Hacker Cam "is damaged and can't be opened"?** It isn't damaged. The app isn't signed with a paid Apple Developer ID yet, and macOS blocks such apps when they're downloaded from a browser. Remove the download flag once, then open it normally:
+
+```bash
+/usr/bin/xattr -dr com.apple.quarantine "/Applications/Hacker Cam.app"
+```
 
 ## 2. Turn on the virtual camera (once)
 
