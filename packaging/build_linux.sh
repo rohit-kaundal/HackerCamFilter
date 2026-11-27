@@ -15,7 +15,13 @@ echo "==> PyInstaller"
 "$PY" -m PyInstaller --noconfirm --clean --distpath dist --workpath build packaging/hacker_cam.spec
 
 echo "==> Self-test"
-dist/HackerCam/HackerCam --self-test
+# pynput (hotkeys) connects to X11 on import, so a headless machine (CI) needs
+# a virtual display: sudo apt install xvfb
+if [ -z "${DISPLAY:-}" ] && command -v xvfb-run >/dev/null; then
+  xvfb-run -a dist/HackerCam/HackerCam --self-test
+else
+  dist/HackerCam/HackerCam --self-test
+fi
 
 echo "==> Portable archive"
 tar -C dist -czf "dist/HackerCam-${VERSION}-linux-${ARCH}.tar.gz" HackerCam

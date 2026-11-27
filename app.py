@@ -680,6 +680,7 @@ def self_test():
         sys.stdout = sys.stderr = open(
             os.path.join(tempfile.gettempdir(), "hackercam-selftest.txt"), "w", encoding="utf-8")
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    e = None
     try:
         app = QApplication(sys.argv)
         make_icon(True)
@@ -718,13 +719,15 @@ def self_test():
         for mod in ("pyvirtualcam", "pynput.keyboard", "PySide6.QtMultimedia"):
             importlib.import_module(mod)
             print(f"  ok  import {mod}")
-        e.close()
         print(f"SELF-TEST OK (Hacker Cam {__version__})")
         return 0
     except Exception:
         traceback.print_exc()
         print("SELF-TEST FAILED")
         return 1
+    finally:
+        if e is not None:   # close MediaPipe before interpreter shutdown
+            e.close()
 
 
 def main():
