@@ -17,7 +17,7 @@ Download the installer for your system from the [latest release]({{ site.github_
 | macOS (Apple Silicon) | `HackerCam-<version>-macos-arm64.dmg` | Open it and drag **Hacker Cam** to Applications. First launch: System Settings → Privacy & Security → **Open Anyway**. Allow **Camera**, and **Input Monitoring** for the hotkeys. |
 | Windows 10/11 | `HackerCam-<version>-windows-x64-setup.exe` | If SmartScreen warns, click **More info → Run anyway**. Starts in the system tray. |
 | Debian / Ubuntu | `hacker-cam_<version>_amd64.deb` | `sudo apt install ./hacker-cam_*.deb`, then run **Hacker Cam** from the app menu. |
-| Other Linux | `HackerCam-<version>-linux-amd64.tar.gz` | Unpack it and run `HackerCam/HackerCam`. Needs the OpenGL ES/EGL libraries (`libgles2` and `libegl1` on Debian/Ubuntu, `libglvnd-gles` and `libglvnd-egl` on Fedora). |
+| Other Linux | `HackerCam-<version>-linux-amd64.tar.gz` | Unpack it and run `HackerCam/HackerCam`. Needs the OpenGL ES/EGL libraries and the PulseAudio client library (`libgles2`, `libegl1` and `libpulse0` on Debian/Ubuntu; `libglvnd-gles`, `libglvnd-egl` and `pulseaudio-libs` on Fedora). Most desktops already have them. |
 
 The installers include everything. You don't need Python.
 

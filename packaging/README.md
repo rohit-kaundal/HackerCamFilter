@@ -16,10 +16,10 @@ Install the app's and the build's dependencies into the project's venv first:
 pip install -r requirements.txt -r packaging/requirements-build.txt
 ```
 
-On Linux, also install the system libraries the build and self-test need. MediaPipe's native library won't load without `libgles2`, and `xvfb` gives the self-test a display on a headless machine:
+On Linux, also install the system libraries the build and self-test need. MediaPipe's native library won't load without `libgles2`, Qt's camera list needs `libpulse0`, and `xvfb` gives the self-test a display on a headless machine:
 
 ```bash
-sudo apt install libgl1 libegl1 libgles2 libxkbcommon-x11-0 libxcb-cursor0 libfontconfig1 libdbus-1-3 xvfb
+sudo apt install libgl1 libegl1 libgles2 libxkbcommon-x11-0 libxcb-cursor0 libfontconfig1 libdbus-1-3 libpulse0 xvfb
 ```
 
 Then:

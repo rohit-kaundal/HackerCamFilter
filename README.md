@@ -15,7 +15,7 @@ Download the installer for your system (built by GitHub Actions, see [packaging/
 | macOS (Apple Silicon) | `HackerCam-<version>-macos-arm64.dmg` | Open it and drag **Hacker Cam** to Applications. First launch: System Settings → Privacy & Security → **Open Anyway**. Allow **Camera**, and **Input Monitoring** for the hotkeys. |
 | Windows 10/11 | `HackerCam-<version>-windows-x64-setup.exe` | If SmartScreen warns, click **More info → Run anyway**. Starts in the system tray. |
 | Debian / Ubuntu | `hacker-cam_<version>_amd64.deb` | `sudo apt install ./hacker-cam_*.deb`, then run **Hacker Cam** from the app menu or `hacker-cam`. |
-| Other Linux | `HackerCam-<version>-linux-amd64.tar.gz` | Unpack it and run `HackerCam/HackerCam`. Needs the OpenGL ES/EGL libraries (`libgles2` and `libegl1` on Debian/Ubuntu, `libglvnd-gles` and `libglvnd-egl` on Fedora). |
+| Other Linux | `HackerCam-<version>-linux-amd64.tar.gz` | Unpack it and run `HackerCam/HackerCam`. Needs the OpenGL ES/EGL libraries and the PulseAudio client library (`libgles2`, `libegl1` and `libpulse0` on Debian/Ubuntu; `libglvnd-gles`, `libglvnd-egl` and `pulseaudio-libs` on Fedora). Most desktops already have them. |
 
 You still need the virtual camera from OBS (macOS/Windows) or v4l2loopback (Linux): see step 1 below. The installers include everything else, and Python isn't needed.
 
@@ -52,7 +52,7 @@ You still need the virtual camera from OBS (macOS/Windows) or v4l2loopback (Linu
    ```
 2. Install the system libraries MediaPipe and Qt need (without `libgles2`, face tracking and background effects won't load), then the Python dependencies:
    ```bash
-   sudo apt install libgl1 libegl1 libgles2 libxkbcommon-x11-0 libxcb-cursor0
+   sudo apt install libgl1 libegl1 libgles2 libxkbcommon-x11-0 libxcb-cursor0 libpulse0
    python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
    ```
 3. Global hotkeys need an X11 session. On Wayland, use the app's buttons instead.
