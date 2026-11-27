@@ -11,17 +11,30 @@ ARCH="$(dpkg --print-architecture 2>/dev/null || echo amd64)"
 echo "==> Icons"
 "$PY" packaging/make_icons.py
 
+# pynput (hotkeys) connects to X11 when imported. PyInstaller imports modules
+# while collecting them, and the self-test imports pynput, so on a headless
+# machine (CI) both run on a virtual display: sudo apt install xvfb
+X=()
+if [ -z "${DISPLAY:-}" ] && command -v xvfb-run >/dev/null; then
+  X=(xvfb-run -a)
+fi
+
 echo "==> PyInstaller"
-"$PY" -m PyInstaller --noconfirm --clean --distpath dist --workpath build packaging/hacker_cam.spec
+${X[@]+"${X[@]}"} "$PY" -m PyInstaller --noconfirm --clean --distpath dist --workpath build packaging/hacker_cam.spec
+
+echo "==> Check the hotkey backend is bundled"
+# PYZ-00.toc lists the Python modules actually packed into the app.
+PYZ_TOC="build/hacker_cam/PYZ-00.toc"
+for mod in pynput.keyboard._xorg pynput.mouse._xorg Xlib.display; do
+  if ! grep -q "'$mod'," "$PYZ_TOC"; then
+    echo "ERROR: $mod is missing from the bundle (hotkeys would fail on Linux)." >&2
+    exit 1
+  fi
+  echo "  ok  $mod"
+done
 
 echo "==> Self-test"
-# pynput (hotkeys) connects to X11 on import, so a headless machine (CI) needs
-# a virtual display: sudo apt install xvfb
-if [ -z "${DISPLAY:-}" ] && command -v xvfb-run >/dev/null; then
-  xvfb-run -a dist/HackerCam/HackerCam --self-test
-else
-  dist/HackerCam/HackerCam --self-test
-fi
+${X[@]+"${X[@]}"} dist/HackerCam/HackerCam --self-test
 
 echo "==> Portable archive"
 tar -C dist -czf "dist/HackerCam-${VERSION}-linux-${ARCH}.tar.gz" HackerCam
