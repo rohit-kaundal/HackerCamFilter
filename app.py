@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
 import hacker_intro as hi
 import telemetry
 
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 GREEN = "#46ff46"
 STYLE = """
 QWidget { background: #070b07; color: #b8f5b8;
