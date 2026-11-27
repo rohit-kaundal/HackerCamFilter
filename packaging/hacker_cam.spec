@@ -9,7 +9,7 @@ from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs, co
 
 ROOT = os.path.abspath(os.path.join(SPECPATH, ".."))
 ICONS = os.path.join(SPECPATH, "icons")
-VERSION = re.search(r'__version__ = "([^"]+)"', open(os.path.join(ROOT, "app.py")).read()).group(1)
+VERSION = re.search(r'__version__ = "([^"]+)"', open(os.path.join(ROOT, "app.py"), encoding="utf-8").read()).group(1)
 
 datas = [(os.path.join(ROOT, "models"), "models"), (os.path.join(ROOT, "LICENSE"), ".")]
 datas += collect_data_files("mediapipe")

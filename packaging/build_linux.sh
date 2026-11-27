@@ -45,7 +45,7 @@ Section: video
 Priority: optional
 Architecture: ${ARCH}
 Maintainer: Hacker Cam <hacker-cam@localhost>
-Depends: libgl1, libegl1, libxkbcommon-x11-0, libxcb-cursor0
+Depends: libgl1, libegl1, libgles2, libxkbcommon-x11-0, libxcb-cursor0
 Recommends: v4l2loopback-dkms
 Description: Hacker-style intro and live effects for video calls
  Sends your webcam with effects (matrix intro, hologram, backgrounds,

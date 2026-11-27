@@ -16,6 +16,12 @@ Install the app's and the build's dependencies into the project's venv first:
 pip install -r requirements.txt -r packaging/requirements-build.txt
 ```
 
+On Linux, also install the system libraries the build and self-test need. MediaPipe's native library won't load without `libgles2`:
+
+```bash
+sudo apt install libgl1 libegl1 libgles2 libxkbcommon-x11-0 libxcb-cursor0 libfontconfig1 libdbus-1-3
+```
+
 Then:
 
 ```bash

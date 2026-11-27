@@ -1,0 +1,21 @@
+# GitHub Pages / Jekyll config for the Hacker Cam site.
+# Repo settings → Pages → Build and deployment: "Deploy from a branch", main, /docs.
+title: Hacker Cam
+description: >-
+  A cinematic hacker intro and live effects for every video call.
+  Free and open source. Runs 100% on your machine.
+url: "https://rohit-kaundal.github.io"
+baseurl: "/HackerCamFilter"          # "" if you move to a custom domain
+github_url: "https://github.com/rohit-kaundal/HackerCamFilter"
+
+markdown: kramdown
+kramdown:
+  input: GFM
+  hard_wrap: false
+
+# Source files that shouldn't be published.
+exclude:
+  - README.md
+  - scripts/
+  - Gemfile
+  - Gemfile.lock

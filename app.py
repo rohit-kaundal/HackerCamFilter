@@ -678,7 +678,7 @@ def self_test():
     import traceback
     if sys.stdout is None:   # windowed build on Windows: no console to print to
         sys.stdout = sys.stderr = open(
-            os.path.join(tempfile.gettempdir(), "hackercam-selftest.txt"), "w")
+            os.path.join(tempfile.gettempdir(), "hackercam-selftest.txt"), "w", encoding="utf-8")
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     try:
         app = QApplication(sys.argv)

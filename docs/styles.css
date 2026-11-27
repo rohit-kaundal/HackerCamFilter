@@ -307,3 +307,25 @@ section { padding: clamp(64px, 9vw, 120px) 0; border-top: 1px solid #0f1d0f; }
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---- Markdown pages (Jekyll _layouts/page.html) ---------------------------- */
+.doc { padding: 64px 0 88px; }
+.doc h1 { font-size: clamp(2rem, 4vw, 3rem); }
+.doc .lede { margin-bottom: 2.2rem; }
+.prose { color: #cfe9cf; line-height: 1.7; }
+.prose > * + * { margin-top: 1em; }
+.prose h2 { font-size: clamp(1.4rem, 2.4vw, 1.8rem); margin: 2.4em 0 .6em; padding-top: .6em; border-top: 1px solid var(--line); }
+.prose h3 { font-size: 1.15rem; margin: 1.8em 0 .5em; color: var(--green); }
+.prose ul, .prose ol { padding-left: 1.3em; }
+.prose li + li { margin-top: .35em; }
+.prose strong { color: #f1fff1; }
+.prose code { font-size: .88em; padding: .12em .4em; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); color: var(--green); }
+.prose pre { background: #020502; border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; overflow-x: auto; line-height: 1.5; }
+.prose pre code { padding: 0; border: 0; background: none; color: #b8f5b8; font-size: .86rem; }
+.prose .table-wrap, .prose table { display: block; overflow-x: auto; }
+.prose table { border-collapse: collapse; font-size: .92rem; max-width: 100%; }
+.prose th, .prose td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; vertical-align: top; }
+.prose th { background: var(--panel); color: var(--green); font-family: var(--mono); font-size: .82rem; font-weight: 700; }
+.prose blockquote { margin-left: 0; padding: 10px 16px; border-left: 3px solid var(--green); background: var(--panel); border-radius: 0 8px 8px 0; color: var(--muted); }
+.prose hr { border: 0; border-top: 1px solid var(--line); margin: 2.4em 0; }
+.nav nav a[aria-current="page"] { color: var(--green); }

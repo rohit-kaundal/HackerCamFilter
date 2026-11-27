@@ -2,7 +2,7 @@
 // ---------------------------------------------------------------------------
 // EDIT HERE: links and analytics.
 const CONFIG = {
-  githubUrl: "",      // e.g. "https://github.com/you/hacker-cam"; empty = GitHub links hidden
+  githubUrl: "https://github.com/rohit-kaundal/HackerCamFilter",   // empty = GitHub links hidden
   downloadUrl: "",    // empty = githubUrl + "/releases/latest" (or scroll to #download if no GitHub)
   posthogKey: "",     // PostHog project API key ("phc_..."); empty = no analytics
   posthogHost: "https://us.i.posthog.com",   // EU projects: "https://eu.i.posthog.com"
