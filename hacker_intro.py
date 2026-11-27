@@ -7,19 +7,26 @@ In the call app, pick "OBS Virtual Camera" as your camera.
 
 Hotkeys (global, work while the call app is focused):
     Ctrl+Alt+H  replay the intro
+    Ctrl+Alt+G  toggle the live hacker filter on your webcam
+    Ctrl+Alt+M  toggle the matrix-rain background (needs mediapipe)
+    Ctrl+Alt+B  run a biometric face scan (needs mediapipe)
+    Ctrl+Alt+A  toggle the "session suspended" away screen
     Ctrl+Alt+Q  quit
 """
 import argparse
+import os
 import random
 import sys
 import threading
 import time
+import urllib.request
 
 import cv2
 import numpy as np
 
 GREEN = (70, 255, 70)          # BGR
 DIM_GREEN = (40, 150, 40)
+AMBER = (0, 190, 255)
 HEAD_COLOR = (220, 255, 220)
 GLYPHS = "0123456789ABCDEF@#$%&*+=<>/\\|{}[]?!"
 
@@ -106,6 +113,12 @@ class Rain:
         self.speed = [rng.uniform(250, 700) * h / 720 for _ in range(self.cols)]
         self.trail = np.zeros((h, w, 3), np.uint8)
         self.font_scale = cell / 16
+
+    def warm(self, seconds=2.5, fps=30):
+        """Pre-run the rain so it starts out filling the screen."""
+        for _ in range(int(seconds * fps)):
+            self.step(1 / fps)
+        return self
 
     def step(self, dt):
         """Advance the rain by dt seconds and return the rendered frame."""
@@ -280,6 +293,424 @@ class Intro:
         return frame
 
 
+# ---------------------------------------------------- live hacker filter ---
+
+class HackerFilter:
+    """Old-school hacker look for the live webcam: green phosphor monochrome,
+    static noise, scanlines, a rolling VHS tracking band, RGB split and
+    random glitch bursts with block corruption."""
+
+    def __init__(self, w, h):
+        self.w, self.h = w, h
+        self.k = h / 720
+        self.rng = random.Random()
+        self.mask = make_scanline_mask(w, h)
+        self.noise = np.zeros((h, w), np.uint8)
+        self.burst_until = 0.0
+
+    def apply(self, frame, t):
+        h, w = self.h, self.w
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        gray = cv2.equalizeHist(gray)
+        cv2.randu(self.noise, 0, 45)                      # static
+        gray = cv2.add(gray, self.noise)
+        # Phosphor green: B and R channels are dim copies of the luminance.
+        out = cv2.merge([cv2.convertScaleAbs(gray, alpha=0.25), gray,
+                         cv2.convertScaleAbs(gray, alpha=0.35)])
+
+        # Rolling VHS tracking band.
+        band_h = int(50 * self.k)
+        y0 = int((t * 0.35 % 1.0) * (h + band_h)) - band_h
+        ya, yb = max(0, y0), min(h, y0 + band_h)
+        if yb > ya:
+            out[ya:yb] = cv2.convertScaleAbs(out[ya:yb], alpha=1.25, beta=25)
+            out[ya:yb] = np.roll(out[ya:yb], int(6 * self.k), axis=1)
+
+        # Random glitch bursts on top of a constant light glitch.
+        if t > self.burst_until and self.rng.random() < 0.025:
+            self.burst_until = t + self.rng.uniform(0.08, 0.35)
+        bursting = t < self.burst_until
+        out = glitch(out, 0.75 if bursting else 0.12, self.rng)
+        if bursting:  # displaced blocks ("datamosh" corruption)
+            for _ in range(self.rng.randint(2, 6)):
+                bw, bh = self.rng.randint(w // 16, w // 4), self.rng.randint(h // 30, h // 8)
+                sx, sy = self.rng.randrange(0, w - bw), self.rng.randrange(0, h - bh)
+                dx, dy = self.rng.randrange(0, w - bw), self.rng.randrange(0, h - bh)
+                out[dy:dy + bh, dx:dx + bw] = out[sy:sy + bh, sx:sx + bw]
+
+        out = scanlines(out, self.mask)
+
+        # HUD
+        k = self.k
+        font = cv2.FONT_HERSHEY_PLAIN
+        if int(t * 2) % 2 == 0:
+            cv2.circle(out, (int(30 * k), int(30 * k)), int(8 * k), (60, 60, 255), -1)
+        cv2.putText(out, "REC  [ SECURE CHANNEL ]", (int(48 * k), int(37 * k)),
+                    font, 1.4 * k, GREEN, 1, cv2.LINE_AA)
+        stamp = time.strftime("%H:%M:%S") + f"  0x{self.rng.getrandbits(24):06X}"
+        cv2.putText(out, stamp, (int(20 * k), h - int(20 * k)),
+                    font, 1.3 * k, DIM_GREEN, 1, cv2.LINE_AA)
+        return out
+
+
+# ------------------------------------------------------------ vision (ML) ---
+
+MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models")
+MODEL_URLS = {
+    "face_landmarker.task": "https://storage.googleapis.com/mediapipe-models/"
+                            "face_landmarker/face_landmarker/float16/latest/face_landmarker.task",
+    "selfie_segmenter.tflite": "https://storage.googleapis.com/mediapipe-models/"
+                               "image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite",
+}
+
+
+def model_path(name):
+    """Path to a MediaPipe model, downloading it on first use."""
+    path = os.path.join(MODEL_DIR, name)
+    if not os.path.exists(path):
+        os.makedirs(MODEL_DIR, exist_ok=True)
+        print(f"[+] Downloading model {name} (one time) ...")
+        urllib.request.urlretrieve(MODEL_URLS[name], path + ".part")
+        os.replace(path + ".part", path)
+    return path
+
+
+class Vision:
+    """Lazily loaded MediaPipe tasks: person segmentation and face landmarks.
+    Every method returns None when mediapipe or a model is unavailable."""
+
+    def __init__(self):
+        self._tasks = {}
+        self._failed = set()
+        self._ts = 0
+        self._lock = threading.Lock()
+        self.tessellation = None  # (M, 2) landmark index pairs of the face mesh
+
+    def preload(self):
+        """Load both models on a background thread so the first toggle doesn't stutter."""
+        threading.Thread(target=lambda: (self._get("seg"), self._get("face")), daemon=True).start()
+
+    def _next_ts(self):
+        # VIDEO-mode tasks need strictly increasing timestamps (ms).
+        self._ts = max(self._ts + 1, int(time.monotonic() * 1000))
+        return self._ts
+
+    def _get(self, kind):
+        if kind in self._tasks:
+            return self._tasks[kind]
+        with self._lock:
+            return self._load(kind)
+
+    def _load(self, kind):
+        if kind in self._tasks:
+            return self._tasks[kind]
+        if kind in self._failed:
+            return None
+        try:
+            os.environ.setdefault("GLOG_minloglevel", "2")
+            from mediapipe.tasks.python import BaseOptions, vision
+            if kind == "seg":
+                task = vision.ImageSegmenter.create_from_options(vision.ImageSegmenterOptions(
+                    base_options=BaseOptions(model_asset_path=model_path("selfie_segmenter.tflite")),
+                    running_mode=vision.RunningMode.VIDEO,
+                    output_confidence_masks=True, output_category_mask=False))
+            else:
+                task = vision.FaceLandmarker.create_from_options(vision.FaceLandmarkerOptions(
+                    base_options=BaseOptions(model_asset_path=model_path("face_landmarker.task")),
+                    running_mode=vision.RunningMode.VIDEO, num_faces=1))
+                self.tessellation = np.array(
+                    [(c.start, c.end) for c in
+                     vision.FaceLandmarksConnections.FACE_LANDMARKS_TESSELATION], np.int32)
+        except Exception as e:  # ImportError, download failure, ...
+            print(f"[!] {'Segmentation' if kind == 'seg' else 'Face tracking'} unavailable: {e}\n"
+                  "    Install it with: pip install mediapipe")
+            self._failed.add(kind)
+            return None
+        self._tasks[kind] = task
+        return task
+
+    @staticmethod
+    def _mp_image(frame):
+        import mediapipe as mp
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        return mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+
+    def segment(self, frame):
+        """Person probability mask (float32, 0..1) at the frame's half size."""
+        task = self._get("seg")
+        if task is None:
+            return None
+        h, w = frame.shape[:2]
+        small = cv2.resize(frame, (w // 2, h // 2), interpolation=cv2.INTER_AREA)
+        res = task.segment_for_video(self._mp_image(small), self._next_ts())
+        mask = np.squeeze(res.confidence_masks[0].numpy_view()).astype(np.float32)
+        if mask.shape != small.shape[:2]:
+            mask = cv2.resize(mask, (small.shape[1], small.shape[0]))
+        return mask
+
+    def face(self, frame):
+        """(N, 2) float32 pixel coordinates of face landmarks, or None."""
+        task = self._get("face")
+        if task is None:
+            return None
+        res = task.detect_for_video(self._mp_image(frame), self._next_ts())
+        if not res.face_landmarks:
+            return None
+        h, w = frame.shape[:2]
+        return np.array([(p.x * w, p.y * h) for p in res.face_landmarks[0]], np.float32)
+
+
+# ------------------------------------------------------ matrix background ---
+
+class MatrixBackground:
+    """Replaces everything behind you with matrix rain and adds a green rim glow."""
+
+    def __init__(self, w, h, vision):
+        self.w, self.h = w, h
+        self.vision = vision
+        self.rain = Rain(w, h, random.Random(), cell=max(10, int(16 * h / 720))).warm()
+        self.mask = None
+        self.last = time.monotonic()
+
+    def apply(self, frame):
+        m = self.vision.segment(frame)
+        if m is None:
+            return frame
+        now = time.monotonic()
+        dt, self.last = min(0.1, now - self.last), now
+        # Temporal smoothing kills edge flicker; work at half size for speed.
+        self.mask = m if self.mask is None else cv2.addWeighted(self.mask, 0.5, m, 0.5, 0)
+        m = cv2.GaussianBlur(self.mask, (0, 0), 2)
+        rim = np.clip((cv2.GaussianBlur(m, (0, 0), 9) - m) * 2.2, 0, 1)
+        rim = cv2.resize(cv2.convertScaleAbs(rim, alpha=255), (self.w, self.h))
+        m = cv2.resize(m, (self.w, self.h))
+
+        bg = self.rain.step(dt)
+        out = cv2.blendLinear(frame, bg, m, 1 - m)
+        glow = cv2.merge([cv2.convertScaleAbs(rim, alpha=GREEN[0] / 255), rim,
+                          cv2.convertScaleAbs(rim, alpha=GREEN[2] / 255)])
+        return cv2.add(out, glow)
+
+
+# --------------------------------------------------------- biometric scan ---
+
+def draw_brackets(img, x0, y0, x1, y1, color, length, thickness):
+    for (x, y, dx, dy) in ((x0, y0, 1, 1), (x1, y0, -1, 1), (x0, y1, 1, -1), (x1, y1, -1, -1)):
+        cv2.line(img, (x, y), (x + dx * length, y), color, thickness, cv2.LINE_AA)
+        cv2.line(img, (x, y), (x, y + dy * length), color, thickness, cv2.LINE_AA)
+
+
+class BiometricScan:
+    """One-shot (~5 s) face scan: lock-on brackets, a laser sweep that reveals
+    the face mesh, a checklist panel, then a BIOMETRIC MATCH result."""
+
+    LOCK, SWEEP_END, RESULT, DURATION = 0.6, 2.6, 3.2, 5.0
+    CHECKS = [("FACIAL GEOMETRY", "{n} PTS"), ("IRIS PATTERN", "LOCKED"),
+              ("LIVENESS", "CONFIRMED"), ("DB QUERY", "MATCH")]
+
+    def __init__(self, w, h, name, vision):
+        self.w, self.h, self.name, self.vision = w, h, name, vision
+        self.k = h / 720
+        self.match = f"{random.uniform(99.1, 99.9):.1f}%"
+        self.box = None
+        self.lm = None
+
+    def _track(self, raw):
+        lm = self.vision.face(raw)
+        if lm is None:
+            return
+        self.lm = lm
+        (x0, y0), (x1, y1) = lm.min(0), lm.max(0)
+        pw, ph = (x1 - x0) * 0.18, (y1 - y0) * 0.15
+        box = np.array([x0 - pw, y0 - ph * 1.5, x1 + pw, y1 + ph], np.float32)
+        self.box = box if self.box is None else self.box * 0.6 + box * 0.4
+
+    def _panel(self, out, box, t):
+        k = self.k
+        font = cv2.FONT_HERSHEY_PLAIN
+        if t < self.RESULT:
+            pct = int(np.clip((t - self.LOCK) / (self.SWEEP_END - self.LOCK), 0, 1) * 100)
+            lines = [("BIOMETRIC SCAN", AMBER, 1.6), (f"PROGRESS {pct:3d}%", AMBER, 1.3), ("", None, 1)]
+            for i, (label, status) in enumerate(self.CHECKS):
+                shown_at = 1.0 + i * 0.55
+                if t < shown_at:
+                    break
+                done = t > shown_at + 0.3
+                n = len(self.lm) if self.lm is not None else 0
+                lines.append((f"{label:<16}" + (status.format(n=n) if done else "..."),
+                              GREEN if done else DIM_GREEN, 1.25))
+        else:
+            lines = [(f"BIOMETRIC MATCH {self.match}", GREEN, 1.8), ("", None, 1),
+                     (f"IDENTITY   {self.name.upper()}", GREEN, 1.35),
+                     ("CLEARANCE  LEVEL 5", GREEN, 1.35),
+                     ("STATUS     AUTHORIZED", GREEN, 1.35)]
+        lh = int(30 * k)
+        pw = max(cv2.getTextSize(s, font, sc * k, 1)[0][0] for s, _, sc in lines) + int(32 * k)
+        ph = lh * len(lines) + int(24 * k)
+        x0, y0, x1, y1 = box
+        gap = int(24 * k)
+        px = x1 + gap if x1 + gap + pw < self.w - 10 else x0 - gap - pw
+        px = int(np.clip(px, 10, max(10, self.w - pw - 10)))
+        py = int(np.clip(y0, 10, max(10, self.h - ph - 10)))
+        roi = out[py:py + ph, px:px + pw]
+        out[py:py + ph, px:px + pw] = cv2.convertScaleAbs(roi, alpha=0.25)
+        border = GREEN if t >= self.RESULT else AMBER
+        cv2.rectangle(out, (px, py), (px + pw, py + ph), border, 1, cv2.LINE_AA)
+        y = py + int(34 * k)
+        for text, color, sc in lines:
+            if text:
+                cv2.putText(out, text, (px + int(16 * k), y), font, sc * k, color, 1, cv2.LINE_AA)
+            y += lh
+
+    def render(self, frame, raw, t):
+        """Overlay the scan at t seconds; returns None when finished."""
+        if t >= self.DURATION:
+            return None
+        self._track(raw)
+        k, w, h = self.k, self.w, self.h
+        box = self.box if self.box is not None else np.array(
+            [w * 0.35, h * 0.15, w * 0.65, h * 0.85], np.float32)
+        if t < self.LOCK:  # brackets zoom in onto the face
+            s = 1 + 0.7 * (1 - t / self.LOCK) ** 2
+            c = (box[:2] + box[2:]) / 2
+            half = (box[2:] - box[:2]) / 2 * s
+            box = np.concatenate([c - half, c + half])
+        x0, y0, x1, y1 = [int(v) for v in box]
+
+        ov = np.zeros_like(frame)
+        color = AMBER if t < self.RESULT else GREEN
+        draw_brackets(ov, x0, y0, x1, y1, color, int(30 * k), max(2, int(3 * k)))
+
+        sweep = np.clip((t - self.LOCK) / (self.SWEEP_END - self.LOCK), 0, 1)
+        line_y = y0 + (y1 - y0) * sweep
+        if self.lm is not None and t >= self.LOCK:
+            mesh_a = 1.0 if t < self.RESULT else max(0.25, 1 - (t - self.RESULT) / 0.8)
+            tess = self.vision.tessellation
+            if tess is not None:
+                segs = self.lm[tess]                          # (M, 2, 2)
+                segs = segs[segs[:, :, 1].max(1) < line_y].astype(np.int32)
+                mesh_color = tuple(int(c * 0.45 * mesh_a) for c in GREEN)
+                if len(segs):
+                    cv2.polylines(ov, list(segs), False, mesh_color, 1, cv2.LINE_AA)
+            pts = self.lm[::3]
+            dot_color = tuple(int(c * mesh_a) for c in GREEN)
+            for x, y in pts[pts[:, 1] < line_y].astype(int):
+                cv2.circle(ov, (x, y), 1, dot_color, -1)
+
+        if self.LOCK <= t < self.SWEEP_END:  # laser line with a fading trail
+            ly = int(line_y)
+            for i in range(10):
+                yy = ly - int(i * 4 * k)
+                fade = 0.4 * (1 - i / 10)
+                cv2.line(ov, (x0, yy), (x1, yy), tuple(int(c * fade) for c in GREEN), 1)
+            cv2.line(ov, (x0 - int(20 * k), ly), (x1 + int(20 * k), ly), HEAD_COLOR, 2, cv2.LINE_AA)
+
+        out = cv2.add(frame, cv2.add(ov, cv2.GaussianBlur(ov, (0, 0), 6 * k)))
+        self._panel(out, (x0, y0, x1, y1), t)
+        fade = min(1.0, (self.DURATION - t) / 0.5)
+        return out if fade >= 1 else cv2.addWeighted(out, fade, frame, 1 - fade, 0)
+
+
+# ------------------------------------------------------------ away screen ---
+
+def scramble(frame, p, rng):
+    """Dissolve a frame into big pixels and hex blocks; p in 0..1."""
+    if p <= 0.01:
+        return frame
+    h, w = frame.shape[:2]
+    b = int(4 + p * 44)
+    small = cv2.resize(frame, (max(1, w // b), max(1, h // b)), interpolation=cv2.INTER_AREA)
+    out = cv2.resize(small, (w, h), interpolation=cv2.INTER_NEAREST)
+    gray = cv2.cvtColor(out, cv2.COLOR_BGR2GRAY)
+    green = cv2.merge([gray // 5, gray, gray // 4])
+    out = crossfade(out, green, p)
+    cols, rows = w // b + 1, h // b + 1
+    scale = b / 24
+    for _ in range(min(500, int(p * cols * rows * 0.5))):
+        x, y = rng.randrange(cols) * b, rng.randrange(rows) * b
+        out[y:y + b, x:x + b] = 0
+        cv2.putText(out, f"{rng.getrandbits(8):02X}", (x + 2, y + int(b * 0.7)),
+                    cv2.FONT_HERSHEY_PLAIN, scale, GREEN, 1)
+    return glitch(out, 0.6 * p, rng)
+
+
+def draw_padlock(img, cx, cy, s, color):
+    t = max(2, int(0.1 * s))
+    cv2.ellipse(img, (cx, cy - int(0.1 * s)), (int(0.3 * s), int(0.4 * s)), 0, 180, 360,
+                color, t, cv2.LINE_AA)
+    cv2.rectangle(img, (cx - int(0.45 * s), cy - int(0.1 * s)),
+                  (cx + int(0.45 * s), cy + int(0.55 * s)), color, -1)
+    cv2.circle(img, (cx, cy + int(0.17 * s)), int(0.08 * s), (0, 0, 0), -1)
+    cv2.rectangle(img, (cx - int(0.03 * s), cy + int(0.17 * s)),
+                  (cx + int(0.03 * s), cy + int(0.36 * s)), (0, 0, 0), -1)
+
+
+class AwayScreen:
+    """Toggle: the live feed scrambles into an encrypted 'session suspended'
+    screen with an away timer; toggling again decrypts back to you."""
+
+    TRANS = 0.8
+
+    def __init__(self, w, h):
+        self.w, self.h, self.k = w, h, h / 720
+        self.state = "off"            # off | entering | on | leaving
+        self.t0 = self.since = 0.0
+        self.rng = random.Random()
+        self.rain = Rain(w, h, self.rng, cell=max(10, int(16 * self.k))).warm()
+        self.mask = make_scanline_mask(w, h)
+        self.last = time.monotonic()
+
+    @property
+    def covering(self):
+        """True when the live feed is fully hidden (no need to process it)."""
+        return self.state == "on"
+
+    def toggle(self, now):
+        if self.state in ("off", "leaving"):
+            if self.state == "off":
+                self.since = now
+            self.state = "entering"
+        else:
+            self.state = "leaving"
+        self.t0 = now
+
+    def _screen(self, now):
+        k, w, h = self.k, self.w, self.h
+        dt, self.last = min(0.1, now - self.last), now
+        out = cv2.convertScaleAbs(self.rain.step(dt), alpha=0.3)
+        draw_padlock(out, w // 2, int(h * 0.27), int(90 * k), GREEN)
+        put_centered(out, "SESSION SUSPENDED", int(h * 0.50), cv2.FONT_HERSHEY_DUPLEX,
+                     1.9 * k, max(2, int(3 * k)), GREEN, glow=True)
+        put_centered(out, "USER AWAY  //  CHANNEL ENCRYPTED (AES-256-GCM)", int(h * 0.60),
+                     cv2.FONT_HERSHEY_PLAIN, 1.6 * k, 1, DIM_GREEN)
+        secs = int(now - self.since)
+        put_centered(out, f"AWAY  {secs // 3600:02d}:{secs // 60 % 60:02d}:{secs % 60:02d}",
+                     int(h * 0.70), cv2.FONT_HERSHEY_DUPLEX, 1.2 * k, max(1, int(2 * k)), GREEN)
+        cursor = "_" if int(now * 2) % 2 == 0 else " "
+        put_centered(out, f"> awaiting re-authentication{cursor}", int(h * 0.80),
+                     cv2.FONT_HERSHEY_PLAIN, 1.4 * k, 1, DIM_GREEN)
+        return scanlines(out, self.mask)
+
+    def render(self, frame, now):
+        if self.state == "off":
+            return frame
+        p = min(1.0, (now - self.t0) / self.TRANS)
+        if self.state == "on":
+            return self._screen(now)
+        if self.state == "entering":
+            if p >= 1:
+                self.state = "on"
+                return self._screen(now)
+            return crossfade(scramble(frame, p, self.rng), self._screen(now),
+                             max(0.0, p * 2 - 1))
+        # leaving
+        if p >= 1:
+            self.state = "off"
+            return frame
+        return crossfade(self._screen(now), scramble(frame, 1 - p, self.rng),
+                         min(1.0, p * 2))
+
+
 # ----------------------------------------------------------------- webcam ---
 
 class Webcam:
@@ -329,16 +760,57 @@ class Webcam:
 
 # ------------------------------------------------------------------- main ---
 
-def start_hotkeys(replay_evt, quit_evt):
+# Hotkey letter -> action. All are Ctrl+Alt+<letter>.
+HOTKEYS = {"h": "replay", "g": "filter", "m": "matrix", "b": "scan", "a": "away", "q": "quit"}
+# macOS ANSI virtual key codes: Option+letter types a symbol (Option+H = "˙"),
+# so on macOS letters are matched by physical key code instead of character.
+MAC_VK = {0: "a", 11: "b", 5: "g", 4: "h", 46: "m", 12: "q"}
+
+
+def start_hotkeys(events):
+    """Global Ctrl+Alt+<letter> hotkeys that set events[action]."""
     try:
         from pynput import keyboard
-        hk = keyboard.GlobalHotKeys({
-            "<ctrl>+<alt>+h": replay_evt.set,
-            "<ctrl>+<alt>+q": quit_evt.set,
-        })
-        hk.start()
-        return hk
-    except Exception as e:  # missing package or OS permission
+    except Exception as e:
+        print(f"[!] Global hotkeys unavailable ({e}). Use the preview window keys or Ctrl+C.")
+        return None
+    K = keyboard.Key
+    ctrl_keys = {K.ctrl, K.ctrl_l, K.ctrl_r}
+    alt_keys = {K.alt, K.alt_l, K.alt_r, getattr(K, "alt_gr", K.alt)}
+    held = set()
+
+    def letter(key):
+        vk = getattr(key, "vk", None)
+        if sys.platform == "darwin" and vk in MAC_VK:
+            return MAC_VK[vk]
+        ch = (getattr(key, "char", None) or "").lower()
+        if len(ch) == 1 and "a" <= ch <= "z":
+            return ch
+        if vk is not None and 65 <= vk <= 90:      # Windows: VK_A..VK_Z
+            return chr(vk).lower()
+        return None
+
+    def on_press(key):
+        if key in ctrl_keys:
+            held.add("ctrl")
+        elif key in alt_keys:
+            held.add("alt")
+        elif held >= {"ctrl", "alt"}:
+            action = HOTKEYS.get(letter(key))
+            if action:
+                events[action].set()
+
+    def on_release(key):
+        if key in ctrl_keys:
+            held.discard("ctrl")
+        elif key in alt_keys:
+            held.discard("alt")
+
+    try:
+        listener = keyboard.Listener(on_press=on_press, on_release=on_release)
+        listener.start()
+        return listener
+    except Exception as e:  # e.g. missing OS permission
         print(f"[!] Global hotkeys unavailable ({e}). Use the preview window keys or Ctrl+C.")
         return None
 
@@ -370,8 +842,13 @@ def parse_args():
                    help="intro length multiplier (0.5 = twice as fast)")
     p.add_argument("--no-autostart", action="store_true",
                    help="start on the webcam; play the intro only on Ctrl+Alt+H")
+    p.add_argument("--filter", action="store_true",
+                   help="start with the hacker webcam filter on (toggle: Ctrl+Alt+G)")
+    p.add_argument("--matrix-bg", action="store_true",
+                   help="start with the matrix-rain background on (toggle: Ctrl+Alt+M)")
     p.add_argument("--preview", action="store_true",
-                   help="also show a local preview window (keys: h = replay, q = quit)")
+                   help="also show a local preview window "
+                        "(keys: h intro, g filter, m matrix bg, b scan, a away, q quit)")
     return p.parse_args()
 
 
@@ -384,30 +861,67 @@ def main():
         sys.exit(1)
 
     webcam = Webcam(args.camera_index, w, h)
-    replay_evt, quit_evt = threading.Event(), threading.Event()
-    hotkeys = start_hotkeys(replay_evt, quit_evt)
+    events = {action: threading.Event() for action in HOTKEYS.values()}
+    hotkeys = start_hotkeys(events)
     if not args.no_autostart:
-        replay_evt.set()
-    print("[+] Ctrl+Alt+H = replay intro, Ctrl+Alt+Q (or Ctrl+C) = quit")
+        events["replay"].set()
+    print("[+] Hotkeys (Ctrl+Alt+...):  H intro   G hacker filter   M matrix background\n"
+          "                             B biometric scan   A away screen   Q quit")
 
+    def fired(action):
+        if events[action].is_set():
+            events[action].clear()
+            return True
+        return False
+
+    vision = Vision()
+    vision.preload()
+    hacker_filter = HackerFilter(w, h)
+    matrix_bg = MatrixBackground(w, h, vision)
+    away = AwayScreen(w, h)
+    filter_on, matrix_on = args.filter, args.matrix_bg
     intro, intro_start = None, 0.0
+    scan, scan_start = None, 0.0
     frame_time = 1.0 / fps
     try:
-        while not quit_evt.is_set():
+        while not events["quit"].is_set():
             tick = time.monotonic()
-            if replay_evt.is_set():
-                replay_evt.clear()
+            if fired("replay"):
                 intro = Intro(w, h, args.name, args.title, args.duration_scale)
                 intro_start = tick
+            if fired("filter"):
+                filter_on = not filter_on
+                print(f"[+] Hacker filter {'ON' if filter_on else 'OFF'}")
+            if fired("matrix"):
+                matrix_on = not matrix_on
+                print(f"[+] Matrix background {'ON' if matrix_on else 'OFF'}")
+            if fired("scan"):
+                scan, scan_start = BiometricScan(w, h, args.name, vision), tick
+                print("[+] Biometric scan")
+            if fired("away"):
+                away.toggle(tick)
+                print(f"[+] Away screen {'ON' if away.state == 'entering' else 'OFF'}")
 
-            cam_frame = webcam.get()
-            frame = cam_frame
-            if intro is not None:
-                out = intro.render(tick - intro_start, cam_frame)
-                if out is None:
-                    intro = None
-                else:
-                    frame = out
+            raw = webcam.get()
+            frame = raw
+            if not away.covering:       # skip all live processing while hidden
+                if matrix_on:
+                    frame = matrix_bg.apply(frame)
+                if filter_on:
+                    frame = hacker_filter.apply(frame, tick)
+                if scan is not None:
+                    out = scan.render(frame, raw, tick - scan_start)
+                    if out is None:
+                        scan = None
+                    else:
+                        frame = out
+                if intro is not None:
+                    out = intro.render(tick - intro_start, frame)
+                    if out is None:
+                        intro = None
+                    else:
+                        frame = out
+            frame = away.render(frame, tick)
 
             if vcam is not None:
                 vcam.send(frame)
@@ -416,8 +930,8 @@ def main():
                 key = cv2.waitKey(1) & 0xFF
                 if key == ord("q"):
                     break
-                if key == ord("h"):
-                    replay_evt.set()
+                if chr(key) in HOTKEYS:
+                    events[HOTKEYS[chr(key)]].set()
             if vcam is not None:
                 vcam.sleep_until_next_frame()
             else:
