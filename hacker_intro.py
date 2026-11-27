@@ -18,6 +18,7 @@ Hotkeys (global, work while the call app is focused):
 """
 import argparse
 import os
+import queue
 import random
 import sys
 import threading
@@ -755,7 +756,7 @@ class Entrance:
     virtual background); then the room fades in. 'armed' holds the empty
     screen with INCOMING SIGNAL until triggered."""
 
-    START, ASSEMBLE, ROOM = 0.5, 2.6, 0.7    # seconds
+    START, ASSEMBLE, ROOM = 0.15, 2.6, 0.7   # seconds
     BAND = 0.16                               # flight window in noise units
 
     def __init__(self, w, h):
@@ -788,6 +789,7 @@ class Entrance:
         cnt = len(self.gx)
         self.off_x = (nr.normal(0, 1, cnt) * 220 * self.k).astype(np.float32)
         self.off_y = (-np.abs(nr.normal(0, 1, cnt)) * 260 * self.k - 40 * self.k).astype(np.float32)
+        self.range = None                     # noise range covered by you, set on first frame
         self.state, self.t0 = "playing", now
 
     def render(self, frame, empty, mask, now):
@@ -807,7 +809,15 @@ class Entrance:
             return frame
         if mask is None:
             mask = np.ones((self.h, self.w), np.float32)
-        p = np.clip((t - self.START) / self.ASSEMBLE, 0, 1) * (1 + self.BAND) - self.BAND / 2
+        # Time the reveal over the noise values *you* cover, not the whole
+        # frame: otherwise nothing happens at first and it stalls at the end.
+        if self.range is None:
+            vals = self.noise[mask > 0.5]
+            self.range = ((float(np.percentile(vals, 1)), float(np.percentile(vals, 99)))
+                          if vals.size > 1000 else (0.0, 1.0))
+        lo, hi = self.range
+        prog = min(max((t - self.START) / self.ASSEMBLE, 0.0), 1.0)
+        p = lo - self.BAND + prog * (hi - lo + self.BAND)   # ends as you're complete
 
         # Pixels whose noise threshold has been passed are "assembled".
         reveal = np.clip((p - self.noise) / 0.03, 0, 1) * mask
@@ -1066,15 +1076,16 @@ class AwayScreen:
 class Webcam:
     """Reads the real webcam on a background thread; keeps the latest frame."""
 
-    def __init__(self, index, w, h):
+    def __init__(self, index, w, h, log=print):
         self.w, self.h = w, h
         self.lock = threading.Lock()
         self.frame = None
         self.running = True
         self.standby = self._standby_frame()
         self.cap = cv2.VideoCapture(index)
-        if not self.cap.isOpened():
-            print(f"[!] Could not open webcam index {index}; showing standby screen.")
+        self.ok = self.cap.isOpened()
+        if not self.ok:
+            log(f"[!] Could not open webcam index {index}; showing standby screen.")
             self.cap = None
             return
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, w)
@@ -1108,7 +1119,7 @@ class Webcam:
             self.cap.release()
 
 
-# ------------------------------------------------------------------- main ---
+# ---------------------------------------------------------------- hotkeys ---
 
 # Hotkey letter -> action. All are Ctrl+Alt+<letter>.
 HOTKEYS = {"h": "replay", "g": "filter", "m": "matrix", "t": "trace", "o": "hologram",
@@ -1166,20 +1177,241 @@ def start_hotkeys(events):
         return None
 
 
-def open_virtual_camera(w, h, fps):
+def open_virtual_camera(w, h, fps, log=print):
+    """Returns (camera, None) or (None, error message)."""
     try:
         import pyvirtualcam
         from pyvirtualcam import PixelFormat
         cam = pyvirtualcam.Camera(width=w, height=h, fps=fps, fmt=PixelFormat.BGR)
-        print(f"[+] Virtual camera running: {cam.device}  "
-              f"(select it as the camera in Zoom/Teams/Meet)")
-        return cam
+        log(f"[+] Virtual camera running: {cam.device}  "
+            f"(select it as the camera in Zoom/Teams/Meet)")
+        return cam, None
     except Exception as e:
-        print(f"[!] Virtual camera unavailable: {e}")
-        print("    Install OBS Studio, open it once, click 'Start Virtual Camera',\n"
-              "    then 'Stop Virtual Camera' and quit OBS. Then rerun this script.")
-        return None
+        log(f"[!] Virtual camera unavailable: {e}")
+        log("    Install OBS Studio, open it once, click 'Start Virtual Camera',\n"
+            "    then 'Stop Virtual Camera' and quit OBS. Then try again.")
+        return None, str(e)
 
+
+# ----------------------------------------------------------------- engine ---
+
+class Engine:
+    """The whole live pipeline, independent of any UI.
+
+    run() loops on one thread. Other threads control it with command(action)
+    (the same actions as the hotkeys) and call(fn), which queues fn(engine) to
+    run on the loop thread before the next frame. open_camera() and
+    set_output() may be called from any thread; latest_frame() and
+    snapshot() are safe to read from any thread."""
+
+    def __init__(self, w=1280, h=720, fps=30, name="Anonymous", title="Operator",
+                 duration_scale=1.0, log=print):
+        self.w, self.h, self.fps = w, h, fps
+        self.name, self.title, self.duration_scale = name, title, duration_scale
+        self.log = log
+        self.events = {action: threading.Event() for action in HOTKEYS.values()}
+        self._calls = queue.SimpleQueue()
+        self._io_lock = threading.Lock()
+        self._frame_lock = threading.Lock()
+        self._latest = None
+        self.measured_fps = 0.0
+        self.webcam = None
+        self.vcam = None
+        self.vcam_device = None
+        self.vcam_error = None
+
+        self.vision = Vision()
+        self.vision.preload()
+        self.pmask = PersonMask(w, h, self.vision)
+        self.hacker_filter = HackerFilter(w, h)
+        self.matrix_bg = MatrixBackground(w, h)
+        self.trace = GlobalTrace(w, h)
+        self.hologram = Hologram(w, h)
+        self.entrance = Entrance(w, h)
+        self.away = AwayScreen(w, h)
+        self.filter_on = False
+        self.holo_on = False
+        self.background = None            # None | "matrix" | "trace"
+        self.intro = self.scan = None
+        self.intro_start = self.scan_start = 0.0
+
+    # --- control, from any thread -------------------------------------
+
+    def command(self, action):
+        self.events[action].set()
+
+    def call(self, fn):
+        self._calls.put(fn)
+
+    def stop(self):
+        self.events["quit"].set()
+
+    @property
+    def running(self):
+        return not self.events["quit"].is_set()
+
+    def open_camera(self, index):
+        """Switch to webcam `index`. Returns True if it opened."""
+        cam = Webcam(index, self.w, self.h, log=self.log)
+        with self._io_lock:
+            old, self.webcam = self.webcam, cam
+        if old is not None:
+            old.close()
+        return cam.ok
+
+    def set_output(self, on):
+        """Start or stop sending to the virtual camera. Returns True if sending."""
+        with self._io_lock:
+            if on and self.vcam is None:
+                self.vcam, self.vcam_error = open_virtual_camera(self.w, self.h, self.fps, self.log)
+                self.vcam_device = self.vcam.device if self.vcam is not None else None
+            elif not on and self.vcam is not None:
+                self.vcam.close()
+                self.vcam, self.vcam_device = None, None
+                self.log("[+] Virtual camera stopped")
+            return self.vcam is not None
+
+    def latest_frame(self):
+        with self._frame_lock:
+            return self._latest
+
+    def snapshot(self):
+        """Current state, for a UI to display."""
+        return {
+            "filter": self.filter_on,
+            "hologram": self.holo_on,
+            "background": self.background,
+            "away": self.away.state in ("entering", "on"),
+            "entrance": self.entrance.state,
+            "output": self.vcam is not None,
+            "device": self.vcam_device,
+            "output_error": self.vcam_error,
+            "camera_ok": self.webcam is not None and self.webcam.ok,
+            "fps": self.measured_fps,
+        }
+
+    def close(self):
+        with self._io_lock:
+            if self.webcam is not None:
+                self.webcam.close()
+                self.webcam = None
+            if self.vcam is not None:
+                self.vcam.close()
+                self.vcam = None
+
+    # --- loop thread -------------------------------------------------------
+
+    def _fired(self, action):
+        if self.events[action].is_set():
+            self.events[action].clear()
+            return True
+        return False
+
+    def _handle_commands(self, tick):
+        while True:
+            try:
+                fn = self._calls.get_nowait()
+            except queue.Empty:
+                break
+            fn(self)
+        if self._fired("replay"):
+            self.intro = Intro(self.w, self.h, self.name, self.title, self.duration_scale)
+            self.intro_start = tick
+        if self._fired("filter"):
+            self.filter_on = not self.filter_on
+            self.log(f"[+] Hacker filter {'ON' if self.filter_on else 'OFF'}")
+        for bg_name in ("matrix", "trace"):      # backgrounds are exclusive
+            if self._fired(bg_name):
+                self.background = None if self.background == bg_name else bg_name
+                self.log(f"[+] Background: {self.background or 'real room'}")
+        if self._fired("hologram"):
+            self.holo_on = not self.holo_on
+            self.log(f"[+] Hologram {'ON' if self.holo_on else 'OFF'}")
+        if self._fired("entrance"):
+            self.entrance.trigger(tick)
+            self.log("[+] Entrance")
+        if self._fired("scan"):
+            self.scan, self.scan_start = BiometricScan(self.w, self.h, self.name, self.vision), tick
+            self.log("[+] Biometric scan")
+        if self._fired("away"):
+            self.away.toggle(tick)
+            self.log(f"[+] Away screen {'ON' if self.away.state == 'entering' else 'OFF'}")
+
+    def step(self, tick):
+        """Render one output frame."""
+        with self._io_lock:
+            webcam = self.webcam
+        raw = webcam.get() if webcam is not None else np.zeros((self.h, self.w, 3), np.uint8)
+        frame = raw
+        if not self.away.covering:       # skip all live processing while hidden
+            background, holo_on = self.background, self.holo_on
+            need_mask = background is not None or holo_on or self.entrance.state == "playing"
+            have_mask = need_mask and self.pmask.update(raw)
+            if not need_mask:
+                self.pmask.reset()
+            bg = None
+            if background == "matrix":
+                bg = self.matrix_bg.render(tick)
+            elif background == "trace":
+                bg = self.trace.render(tick)
+            if holo_on:
+                bg = self.hologram.background(bg if bg is not None else raw)
+            if bg is not None and have_mask:
+                person = self.hologram.person(raw, tick) if holo_on else raw
+                alpha = self.pmask.full()
+                if holo_on:
+                    alpha = alpha * self.hologram.opacity()
+                frame = composite(person, bg, alpha, self.pmask.rim(), CYAN if holo_on else GREEN)
+                if holo_on:
+                    self.hologram.hud(frame, tick)
+            if self.entrance.active:
+                if background is not None and bg is not None and have_mask:
+                    empty = bg                              # virtual background
+                else:
+                    empty = None                            # black
+                    if holo_on:
+                        empty = self.hologram.background(np.zeros_like(raw))
+                frame = self.entrance.render(frame, empty,
+                                             self.pmask.full() if have_mask else None, tick)
+            if self.filter_on:
+                frame = self.hacker_filter.apply(frame, tick)
+            if self.scan is not None:
+                out = self.scan.render(frame, raw, tick - self.scan_start)
+                if out is None:
+                    self.scan = None
+                else:
+                    frame = out
+            if self.intro is not None:
+                out = self.intro.render(tick - self.intro_start, frame)
+                if out is None:
+                    self.intro = None
+                else:
+                    frame = out
+        return self.away.render(frame, tick)
+
+    def run(self, on_frame=None):
+        """Loop until stop() or the quit hotkey. on_frame(frame) is called after
+        each frame on this thread; returning False stops the loop."""
+        frame_time = 1.0 / self.fps
+        next_tick = time.monotonic()
+        while self.running:
+            tick = time.monotonic()
+            self._handle_commands(tick)
+            frame = self.step(tick)
+            with self._frame_lock:
+                self._latest = frame
+            with self._io_lock:
+                if self.vcam is not None:
+                    self.vcam.send(frame)
+            if on_frame is not None and on_frame(frame) is False:
+                break
+            dt = time.monotonic() - tick
+            self.measured_fps = 0.9 * self.measured_fps + 0.1 * (1.0 / max(dt, frame_time))
+            next_tick = max(next_tick + frame_time, time.monotonic() - frame_time)
+            time.sleep(max(0.0, next_tick - time.monotonic()))
+
+
+# -------------------------------------------------------------------- CLI ---
 
 def parse_args():
     p = argparse.ArgumentParser(description="Hacker-style intro for video calls.")
@@ -1211,137 +1443,40 @@ def parse_args():
 
 def main():
     args = parse_args()
-    w, h, fps = args.width, args.height, args.fps
-
-    vcam = open_virtual_camera(w, h, fps)
-    if vcam is None and not args.preview:
+    engine = Engine(args.width, args.height, args.fps, args.name, args.title, args.duration_scale)
+    if not engine.set_output(True) and not args.preview:
         sys.exit(1)
-
-    webcam = Webcam(args.camera_index, w, h)
-    events = {action: threading.Event() for action in HOTKEYS.values()}
-    hotkeys = start_hotkeys(events)
-    if not args.no_autostart and not args.entrance:
-        events["replay"].set()
+    engine.open_camera(args.camera_index)
+    engine.filter_on, engine.holo_on = args.filter, args.hologram
+    engine.background = "matrix" if args.matrix_bg else ("trace" if args.trace_bg else None)
+    if args.entrance:
+        engine.entrance.arm()
+    elif not args.no_autostart:
+        engine.command("replay")
+    hotkeys = start_hotkeys(engine.events)
     print("[+] Hotkeys (Ctrl+Alt+...):\n"
           "      H intro      E entrance        B biometric scan   A away screen\n"
           "      G filter     M matrix bg       T global trace bg  O hologram     Q quit")
 
-    def fired(action):
-        if events[action].is_set():
-            events[action].clear()
+    on_frame = None
+    if args.preview:
+        def on_frame(frame):
+            cv2.imshow("hacker intro (preview)", frame)
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord("q"):
+                return False
+            if chr(key) in HOTKEYS:
+                engine.command(HOTKEYS[chr(key)])
             return True
-        return False
-
-    vision = Vision()
-    vision.preload()
-    pmask = PersonMask(w, h, vision)
-    hacker_filter = HackerFilter(w, h)
-    matrix_bg = MatrixBackground(w, h)
-    trace = GlobalTrace(w, h)
-    hologram = Hologram(w, h)
-    entrance = Entrance(w, h)
-    away = AwayScreen(w, h)
-    filter_on, holo_on = args.filter, args.hologram
-    background = "matrix" if args.matrix_bg else ("trace" if args.trace_bg else None)
-    if args.entrance:
-        entrance.arm()
-    intro, intro_start = None, 0.0
-    scan, scan_start = None, 0.0
-    frame_time = 1.0 / fps
     try:
-        while not events["quit"].is_set():
-            tick = time.monotonic()
-            if fired("replay"):
-                intro = Intro(w, h, args.name, args.title, args.duration_scale)
-                intro_start = tick
-            if fired("filter"):
-                filter_on = not filter_on
-                print(f"[+] Hacker filter {'ON' if filter_on else 'OFF'}")
-            for bg_name in ("matrix", "trace"):      # backgrounds are exclusive
-                if fired(bg_name):
-                    background = None if background == bg_name else bg_name
-                    print(f"[+] Background: {background or 'real room'}")
-            if fired("hologram"):
-                holo_on = not holo_on
-                print(f"[+] Hologram {'ON' if holo_on else 'OFF'}")
-            if fired("entrance"):
-                entrance.trigger(tick)
-                print("[+] Entrance")
-            if fired("scan"):
-                scan, scan_start = BiometricScan(w, h, args.name, vision), tick
-                print("[+] Biometric scan")
-            if fired("away"):
-                away.toggle(tick)
-                print(f"[+] Away screen {'ON' if away.state == 'entering' else 'OFF'}")
-
-            raw = webcam.get()
-            frame = raw
-            if not away.covering:       # skip all live processing while hidden
-                need_mask = background is not None or holo_on or entrance.state == "playing"
-                have_mask = need_mask and pmask.update(raw)
-                if not need_mask:
-                    pmask.reset()
-                bg = None
-                if background == "matrix":
-                    bg = matrix_bg.render(tick)
-                elif background == "trace":
-                    bg = trace.render(tick)
-                if holo_on:
-                    bg = hologram.background(bg if bg is not None else raw)
-                if bg is not None and have_mask:
-                    person = hologram.person(raw, tick) if holo_on else raw
-                    alpha = pmask.full()
-                    if holo_on:
-                        alpha = alpha * hologram.opacity()
-                    frame = composite(person, bg, alpha, pmask.rim(), CYAN if holo_on else GREEN)
-                    if holo_on:
-                        hologram.hud(frame, tick)
-                if entrance.active:
-                    if background is not None and bg is not None and have_mask:
-                        empty = bg                              # virtual background
-                    else:
-                        empty = None                            # black
-                        if holo_on:
-                            empty = hologram.background(np.zeros_like(raw))
-                    frame = entrance.render(frame, empty, pmask.full() if have_mask else None, tick)
-                if filter_on:
-                    frame = hacker_filter.apply(frame, tick)
-                if scan is not None:
-                    out = scan.render(frame, raw, tick - scan_start)
-                    if out is None:
-                        scan = None
-                    else:
-                        frame = out
-                if intro is not None:
-                    out = intro.render(tick - intro_start, frame)
-                    if out is None:
-                        intro = None
-                    else:
-                        frame = out
-            frame = away.render(frame, tick)
-
-            if vcam is not None:
-                vcam.send(frame)
-            if args.preview:
-                cv2.imshow("hacker intro (preview)", frame)
-                key = cv2.waitKey(1) & 0xFF
-                if key == ord("q"):
-                    break
-                if chr(key) in HOTKEYS:
-                    events[HOTKEYS[chr(key)]].set()
-            if vcam is not None:
-                vcam.sleep_until_next_frame()
-            else:
-                time.sleep(max(0.0, frame_time - (time.monotonic() - tick)))
+        engine.run(on_frame)
     except KeyboardInterrupt:
         pass
     finally:
         print("\n[+] Shutting down.")
         if hotkeys is not None:
             hotkeys.stop()
-        webcam.close()
-        if vcam is not None:
-            vcam.close()
+        engine.close()
         if args.preview:
             cv2.destroyAllWindows()
 

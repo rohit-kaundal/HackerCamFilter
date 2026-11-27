@@ -4,7 +4,11 @@ Plays a hacker-style intro (matrix rain → terminal "breach" log → ACCESS GRA
 
 It works by sending frames to a **virtual camera** ("OBS Virtual Camera"). The call app sees it as an ordinary webcam.
 
-## One-time setup (macOS)
+There are two ways to run it: the **Hacker Cam desktop app** (`app.py`, macOS, Windows and Linux) or the **command-line script** (`hacker_intro.py`). Both have the same effects and hotkeys.
+
+## One-time setup
+
+### macOS
 
 1. **Install OBS Studio 30 or later**: https://obsproject.com, or `brew install --cask obs`.
 2. Open OBS and click **Start Virtual Camera**. Approve the system extension if macOS asks (System Settings → General → Login Items & Extensions → Camera Extensions). You may need to restart. Then click **Stop Virtual Camera** and quit OBS. OBS doesn't need to be open after this.
@@ -17,7 +21,52 @@ It works by sending frames to a **virtual camera** ("OBS Virtual Camera"). The c
    - **Camera**, so the script can read your real webcam.
    - **Input Monitoring** (or **Accessibility**), so the global hotkeys work.
 
-## Usage
+### Windows
+
+1. Install **OBS Studio 30 or later** from https://obsproject.com. Open it once, click **Start Virtual Camera**, then **Stop Virtual Camera** and quit OBS.
+2. Install Python 3.10 or later from https://python.org, then in the project folder:
+   ```bat
+   py -3 -m venv .venv
+   .venv\Scripts\pip install -r requirements.txt
+   ```
+
+### Linux
+
+1. The virtual camera comes from the `v4l2loopback` kernel module:
+   ```bash
+   sudo apt install v4l2loopback-dkms          # or your distro's equivalent
+   sudo modprobe v4l2loopback devices=1 exclusive_caps=1 card_label="Virtual Camera"
+   ```
+2. Install the Python dependencies:
+   ```bash
+   python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+   ```
+3. Global hotkeys need an X11 session. On Wayland, use the app's buttons instead.
+
+## Desktop app
+
+```bash
+.venv/bin/python app.py              # macOS / Linux
+.venv\Scripts\python app.py          # Windows
+```
+
+Hacker Cam starts as a small **`>_` icon in the menu bar** (macOS) or **system tray** (Windows/Linux). It's green with a red dot while you're live, and grey when you're not sending. Click it (right-click on Windows) for the menu:
+
+- **Status:** for example `● LIVE → OBS Virtual Camera · 30 fps`
+- **Send to virtual camera:** on/off
+- **Moments:** Play intro, Black screen (waits for the entrance), Entrance, Biometric scan, Away screen
+- **Looks:** Hacker filter, Hologram
+- **Background ▸** Real room, Matrix rain, Global trace map
+- **Webcam ▸** pick your camera
+- **Open window ...** and **Quit Hacker Cam**
+
+Each item shows its global hotkey, and ticks update when you use the hotkeys.
+
+**Open window** shows a live preview of exactly what the call sees, plus settings: your name and title, what happens at launch (play intro, black screen or nothing), intro length, global hotkeys on/off, and *Open this window at launch*. Closing the window only hides it, and Hacker Cam keeps running in the menu bar. Quit from the menu or with `Ctrl+Alt+Q`. To open the window straight away, run `app.py --window`. Your settings are remembered between launches.
+
+If your desktop has no tray (some Linux setups), the window opens instead.
+
+## Command-line usage
 
 ```bash
 .venv/bin/python hacker_intro.py --name "Rohit Kaundal" --title "Lead Engineer"
