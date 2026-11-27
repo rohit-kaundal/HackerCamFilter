@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Render real Hacker Cam frames for the website into website/assets/.
+"""Render real Hacker Cam frames for the website into docs/assets/.
 
 Uses the app's own effect code, so the screenshots are exactly what a call
 sees. Only effects that don't need a person are rendered (no stock faces).
 
-    .venv/bin/python website/scripts/render_assets.py
+    .venv/bin/python docs/scripts/render_assets.py
 """
 import os
 import sys
@@ -13,7 +13,7 @@ import cv2
 import numpy as np
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-OUT = os.path.join(ROOT, "website", "assets")
+OUT = os.path.join(ROOT, "docs", "assets")
 sys.path.insert(0, ROOT)
 import hacker_intro as hi  # noqa: E402
 
