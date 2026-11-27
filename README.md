@@ -125,6 +125,17 @@ The backgrounds, hologram, entrance and biometric scan use MediaPipe (included i
 | `--no-autostart` | off | Start on the webcam; play the intro only on hotkey |
 | `--preview` | off | Show a local preview window (same letters as the hotkeys). Works without OBS, useful for testing |
 
+## Usage stats (optional)
+
+The desktop app can send anonymous usage stats to PostHog: event names such as `app_started` and `effect_used` (with the effect's name), the app version, OS and CPU type, how long the app ran, and a random install ID. It never sends video, images, your name or title, camera names, or anything you type. The code is in `telemetry.py`.
+
+- **Off unless the user agrees.** On first launch the app asks. It can be changed any time under *Options → Share anonymous usage stats*.
+- **Off in builds without a key.** Set `POSTHOG_KEY` in `telemetry.py` (and `POSTHOG_HOST` for an EU project) before building. Forks that leave it empty send nothing, and the question never appears. For testing, `HACKERCAM_POSTHOG_KEY` and `HACKERCAM_POSTHOG_HOST` override both.
+- **Always off** when `DO_NOT_TRACK=1` or `HACKERCAM_NO_TELEMETRY=1` is set.
+- Events don't create person profiles. In the PostHog project settings, also turn on *Discard client IP data*.
+
+The command-line script (`hacker_intro.py`) never sends anything.
+
 ## Troubleshooting
 
 - **"Virtual camera unavailable"**: repeat setup step 2. OBS itself must not have its virtual camera running while the script runs.
@@ -136,3 +147,11 @@ The backgrounds, hologram, entrance and biometric scan use MediaPipe (included i
 - **Self-view looks mirrored**: that's only the call app's own self-view. Other people see it the right way round.
 
 World map data: [Natural Earth](https://www.naturalearthdata.com/) (public domain), embedded in the script as a small bitmap.
+
+## License
+
+[MIT](LICENSE). Contributions are welcome: open an issue or a pull request.
+
+Third-party parts keep their own licenses: MediaPipe and its models (Apache 2.0), OpenCV (Apache 2.0), PySide6/Qt and pynput (LGPL v3), pyvirtualcam (GPL v2), Natural Earth map data (public domain).
+
+Because the installers bundle pyvirtualcam, each installer as a whole is distributed under the GPL v2. This repository's own code stays MIT, and MIT is compatible with the GPL. In practice: keep the source public (it is) and ship the license texts with the installers.

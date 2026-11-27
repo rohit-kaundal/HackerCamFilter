@@ -11,14 +11,15 @@ ROOT = os.path.abspath(os.path.join(SPECPATH, ".."))
 ICONS = os.path.join(SPECPATH, "icons")
 VERSION = re.search(r'__version__ = "([^"]+)"', open(os.path.join(ROOT, "app.py")).read()).group(1)
 
-datas = [(os.path.join(ROOT, "models"), "models")]
+datas = [(os.path.join(ROOT, "models"), "models"), (os.path.join(ROOT, "LICENSE"), ".")]
 datas += collect_data_files("mediapipe")
 # MediaPipe loads its native library from the mediapipe/tasks/c package folder.
 binaries = collect_dynamic_libs("mediapipe") + collect_dynamic_libs("pyvirtualcam")
 hiddenimports = (collect_submodules("mediapipe.tasks.python")
                  + ["mediapipe.tasks.c"]
                  + collect_submodules("pynput")
-                 + collect_submodules("pyvirtualcam"))
+                 + collect_submodules("pyvirtualcam")
+                 + ["certifi"])           # CA certificates for the optional usage stats
 
 # Big libraries the app never imports. (Not matplotlib: mediapipe imports it.)
 excludes = ["tkinter", "IPython", "jax", "jaxlib", "sounddevice",

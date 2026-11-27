@@ -20,10 +20,11 @@ from PySide6.QtGui import QAction, QActionGroup, QColor, QFont, QIcon, QImage, Q
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QCheckBox, QComboBox, QFormLayout, QGroupBox,
     QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMenu, QPlainTextEdit, QPushButton,
-    QRadioButton, QScrollArea, QSizePolicy, QSlider, QSystemTrayIcon, QVBoxLayout, QWidget,
+    QMessageBox, QRadioButton, QScrollArea, QSizePolicy, QSlider, QSystemTrayIcon, QVBoxLayout, QWidget,
 )
 
 import hacker_intro as hi
+import telemetry
 
 __version__ = "1.0.0"
 GREEN = "#46ff46"
@@ -154,9 +155,22 @@ class MainWindow(QMainWindow):
             name=s.value("name", "Anonymous"), title=s.value("title", "Operator"),
             duration_scale=float(s.value("duration_scale", 1.0)), log=self._log)
 
+        # Anonymous usage stats: off until the user agrees (see telemetry.py).
+        if not s.value("install_id"):
+            s.setValue("install_id", telemetry.Telemetry.new_install_id())
+        self.stats = telemetry.Telemetry(s.value("install_id"), __version__,
+                                         enabled=s.value("telemetry", False, type=bool))
+        self.session = telemetry.Session()
+        self.engine.on_action = lambda action: self.stats.capture("effect_used", effect=action)
+
         self._build_ui()
         self._load_initial_state()
         self._build_tray()
+        self.stats.capture("app_started", output_ok=self.engine.vcam is not None,
+                           camera_ok=bool(self.engine.webcam and self.engine.webcam.ok),
+                           tray=self.tray is not None)
+        if telemetry.available() and s.value("telemetry") is None:
+            QTimer.singleShot(1200, self._ask_telemetry)
 
         self.thread = threading.Thread(target=self._run_engine, daemon=True)
         self.thread.start()
@@ -315,6 +329,13 @@ class MainWindow(QMainWindow):
         self.window_check.setChecked(self.settings.value("show_window", False, type=bool))
         self.window_check.toggled.connect(lambda on: self.settings.setValue("show_window", on))
         f.addRow(self.window_check)
+        self.stats_check = QCheckBox("Share anonymous usage stats")
+        self.stats_check.setToolTip("Which effects get used, app version and OS.\n"
+                                    "Never video, images, your name or anything you type.")
+        self.stats_check.setChecked(self.settings.value("telemetry", False, type=bool))
+        self.stats_check.toggled.connect(self._telemetry_toggled)
+        self.stats_check.setVisible(telemetry.available())
+        f.addRow(self.stats_check)
         col.addWidget(box)
         col.addStretch(1)
 
@@ -479,8 +500,34 @@ class MainWindow(QMainWindow):
             self._log(f"[+] Webcam {index} opened")
         self.settings.setValue("camera_index", index)
 
+    def _ask_telemetry(self):
+        box = QMessageBox(self)
+        box.setWindowTitle("Hacker Cam")
+        box.setIcon(QMessageBox.Question)
+        box.setWindowFlag(Qt.WindowStaysOnTopHint)   # menu bar app: don't open behind others
+        box.setText("Help improve Hacker Cam?")
+        box.setInformativeText(
+            "Share anonymous usage stats: which effects you use, the app version and your OS.\n\n"
+            "Never your video, images, name, title or anything you type. "
+            "You can change this any time in the window's Options.")
+        yes = box.addButton("Share stats", QMessageBox.AcceptRole)
+        box.addButton("No thanks", QMessageBox.RejectRole)
+        box.exec()
+        self.stats_check.setChecked(box.clickedButton() is yes)
+        self.settings.setValue("telemetry", box.clickedButton() is yes)
+
+    def _telemetry_toggled(self, on):
+        if on and not self.stats.enabled:
+            self.stats.set_enabled(True)
+            self.stats.capture("telemetry_enabled")
+        elif not on:
+            self.stats.set_enabled(False)
+        self.settings.setValue("telemetry", on)
+
     def _output_toggled(self, on):
         sending = self.engine.set_output(on)
+        if on:
+            self.stats.capture("virtual_camera_started", ok=sending)
         self.output_btn.setChecked(sending)
         self.settings.setValue("output", on)
 
@@ -493,11 +540,13 @@ class MainWindow(QMainWindow):
 
     def _arm_entrance(self):
         self.engine.call(lambda e: e.entrance.arm())
+        self.stats.capture("effect_used", effect="black_screen")
         self._log("[+] Black screen: press Entrance when ready")
 
     def _set_background(self, value):
         if self.engine.background != value:
             self.engine.call(lambda e: setattr(e, "background", value))
+            self.stats.capture("effect_used", effect=value or "real_room")
             self._log(f"[+] Background: {value or 'real room'}")
 
     def _speed_changed(self, value):
@@ -613,6 +662,8 @@ class MainWindow(QMainWindow):
         self.engine.stop()
         self.thread.join(timeout=2)
         self.engine.close()
+        self.stats.capture("app_quit", minutes=self.session.minutes())
+        self.stats.close()
         if self.tray is not None:
             self.tray.hide()
 

@@ -1,19 +1,59 @@
 // Hacker Cam landing page.
 // ---------------------------------------------------------------------------
-// EDIT HERE: price and checkout link (Gumroad, Lemon Squeezy, Stripe link...).
+// EDIT HERE: links and analytics.
 const CONFIG = {
-  price: "$29",
-  buyUrl: "",            // e.g. "https://yourstore.lemonsqueezy.com/buy/..."; empty = scroll to pricing
+  githubUrl: "",      // e.g. "https://github.com/you/hacker-cam"; empty = GitHub links hidden
+  downloadUrl: "",    // empty = githubUrl + "/releases/latest" (or scroll to #download if no GitHub)
+  posthogKey: "",     // PostHog project API key ("phc_..."); empty = no analytics
+  posthogHost: "https://us.i.posthog.com",   // EU projects: "https://eu.i.posthog.com"
 };
 // ---------------------------------------------------------------------------
+
+// Cookieless PostHog analytics, loaded only when a key is set. This is the
+// official loader stub, unminified: it queues calls until array.js arrives.
+(function loadPostHog() {
+  if (!CONFIG.posthogKey) return;
+  const ph = (window.posthog = window.posthog || []);
+  if (ph.__SV) return;
+  ph._i = [];
+  ph.init = (key, options, name) => {
+    const script = document.createElement("script");
+    script.async = true;
+    script.crossOrigin = "anonymous";
+    script.src = options.api_host.replace(".i.posthog.com", "-assets.i.posthog.com") + "/static/array.js";
+    document.head.appendChild(script);
+    const stub = name !== undefined ? (ph[name] = []) : ph;
+    "capture register register_once unregister opt_out_capturing opt_in_capturing set_config reset"
+      .split(" ").forEach((m) => { stub[m] = (...args) => { stub.push([m, ...args]); }; });
+    ph._i.push([key, options, name]);
+  };
+  ph.__SV = 1;
+  ph.init(CONFIG.posthogKey, {
+    api_host: CONFIG.posthogHost,
+    defaults: "2026-08-30",
+    cookieless_mode: "always",       // no cookies or storage, so no cookie banner
+    person_profiles: "identified_only",
+  });
+})();
+
+// Named events, on top of PostHog's automatic page views and clicks.
+const track = (event, props) => { if (window.posthog && window.posthog.capture) window.posthog.capture(event, props); };
 
 (() => {
   "use strict";
 
-  // Price and buy links.
-  document.querySelectorAll(".js-price").forEach((el) => { el.textContent = CONFIG.price; });
-  if (CONFIG.buyUrl) {
-    document.querySelectorAll(".js-buy").forEach((a) => { a.href = CONFIG.buyUrl; });
+  // Download and GitHub links.
+  const downloadUrl = CONFIG.downloadUrl || (CONFIG.githubUrl ? CONFIG.githubUrl.replace(/\/$/, "") + "/releases/latest" : "");
+  document.querySelectorAll(".js-download").forEach((a) => {
+    if (downloadUrl) a.href = downloadUrl;
+    a.addEventListener("click", () => track("download_clicked", { where: a.closest("section, header")?.className || "" }));
+  });
+  if (CONFIG.githubUrl) {
+    document.querySelectorAll(".js-github").forEach((a) => {
+      a.href = CONFIG.githubUrl;
+      a.addEventListener("click", () => track("github_clicked"));
+    });
+    document.querySelectorAll(".js-github-row").forEach((el) => { el.hidden = false; });
   }
 
   // Hotkey labels: ⌃⌥H on a Mac, Ctrl+Alt+H elsewhere.
@@ -250,6 +290,7 @@ const CONFIG = {
     scanlines();
   }
 
+  nameInput.addEventListener("change", () => track("demo_name_typed"), { once: true });   // never the name itself
   nameInput.addEventListener("input", () => {
     name = nameInput.value.trim() || "Your Name";
     label.textContent = name;

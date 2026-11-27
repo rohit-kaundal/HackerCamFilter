@@ -1240,6 +1240,7 @@ class Engine:
         self.w, self.h, self.fps = w, h, fps
         self.name, self.title, self.duration_scale = name, title, duration_scale
         self.log = log
+        self.on_action = None             # optional fn(action), called on the loop thread
         self.events = {action: threading.Event() for action in HOTKEYS.values()}
         self._calls = queue.SimpleQueue()
         self._io_lock = threading.Lock()
@@ -1336,6 +1337,11 @@ class Engine:
     def _fired(self, action):
         if self.events[action].is_set():
             self.events[action].clear()
+            if self.on_action is not None:
+                try:
+                    self.on_action(action)
+                except Exception:
+                    pass
             return True
         return False
 

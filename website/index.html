@@ -6,7 +6,7 @@
   <title>Hacker Cam: stop being one of nine identical rectangles</title>
   <meta name="description" content="Hacker Cam turns your webcam into a cinematic hacker feed for Zoom, Teams, Meet and any call app: a matrix intro, hologram mode, live world-trace background and more. Runs locally on macOS, Windows and Linux.">
   <meta property="og:title" content="Hacker Cam: make the room remember you">
-  <meta property="og:description" content="A cinematic hacker intro and live effects for every video call. One-time purchase. Runs 100% on your machine.">
+  <meta property="og:description" content="A cinematic hacker intro and live effects for every video call. Free and open source. Runs 100% on your machine.">
   <meta property="og:image" content="assets/social-card.jpg">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="theme-color" content="#050805">
@@ -27,7 +27,7 @@
         <a href="#how">How it works</a>
         <a href="#faq">FAQ</a>
       </nav>
-      <a class="btn btn--small js-buy" href="#pricing">Get Hacker Cam</a>
+      <a class="btn btn--small js-download" href="#download">Download free</a>
     </div>
   </header>
 
@@ -40,10 +40,10 @@
           <h1>On a call, you're one of nine <span class="hl">identical rectangles.</span></h1>
           <p class="lede">Same webcam. Same blurred bookshelf. Same <em>"can you hear me?"</em>. Your expertise is invisible until you've talked long enough to earn attention. Hacker Cam makes your camera do the introduction, so the room remembers you <strong>before you say a word</strong>.</p>
           <div class="cta-row">
-            <a class="btn js-buy" href="#pricing">Get Hacker Cam · <span class="js-price">$29</span></a>
+            <a class="btn js-download" href="#download">Download free</a>
             <a class="btn btn--ghost" href="#effects">See the effects ↓</a>
           </div>
-          <p class="fine">One-time purchase · macOS, Windows &amp; Linux · Works with Zoom, Teams, Meet and any app with a camera picker</p>
+          <p class="fine">Free and open source (MIT) · macOS, Windows &amp; Linux · Works with Zoom, Teams, Meet and any app with a camera picker</p>
         </div>
 
         <figure class="hero__demo">
@@ -116,7 +116,7 @@
           <ul class="ticks">
             <li><strong>Works everywhere:</strong> Zoom, Microsoft Teams, Google Meet, Webex, Slack, Discord and any app that lets you pick a camera.</li>
             <li><strong>One click or one keystroke:</strong> every effect is in your menu bar, and on global hotkeys that work mid-call.</li>
-            <li><strong>Private by design:</strong> all processing happens on your computer. No account, no cloud, no uploads.</li>
+            <li><strong>Private by design:</strong> all processing happens on your computer. No account, no cloud, no uploads. The code is open, so you can check.</li>
           </ul>
         </div>
         <div class="strip" aria-label="The intro sequence in four steps">
@@ -232,21 +232,21 @@
         <div class="lock" aria-hidden="true"></div>
         <div>
           <h2>Your camera never leaves your computer.</h2>
-          <p>Background removal and face tracking run on-device. Hacker Cam has no accounts, no analytics and no servers. Your video goes from your webcam to Hacker Cam to your call app, and nowhere else.</p>
+          <p>Background removal and face tracking run on-device. Your video goes from your webcam to Hacker Cam to your call app, and nowhere else. There are no accounts. The app can share anonymous usage stats (which effects get used, app version, OS), but only if you say yes, and never video, images or anything you type. The code is open source, so you don't have to take our word for it.</p>
         </div>
       </div>
     </section>
 
     <!-- 9. OFFER -->
-    <section class="pricing" id="pricing">
+    <section class="pricing" id="download">
       <div class="wrap">
-        <p class="eyebrow center">One price, everything included</p>
+        <p class="eyebrow center">Free, open source, everything included</p>
         <h2 class="center">Stop blending in on calls.</h2>
         <div class="offer">
           <div class="offer__head">
             <span class="offer__name">Hacker Cam</span>
-            <span class="offer__price js-price">$29</span>
-            <span class="offer__terms">one-time · no subscription</span>
+            <span class="offer__price">Free</span>
+            <span class="offer__terms">open source · MIT license</span>
           </div>
           <ul class="ticks">
             <li>All 8 effects: intro, entrance, biometric scan, away screen, hacker filter, hologram, matrix and global-trace backgrounds</li>
@@ -254,9 +254,10 @@
             <li>Menu bar app plus global hotkeys that work mid-call</li>
             <li>macOS (Apple Silicon), Windows 10/11 and Linux installers</li>
             <li>Works with any app that lets you choose a camera</li>
-            <li>Runs 100% locally: no account, no cloud</li>
+            <li>Runs 100% locally: no account, no cloud. Read, fork or improve the code.</li>
           </ul>
-          <a class="btn btn--wide js-buy" href="#pricing">Get Hacker Cam · <span class="js-price">$29</span></a>
+          <a class="btn btn--wide js-download" href="#download">Download Hacker Cam</a>
+          <p class="center js-github-row" hidden><a class="js-github" href="#">View the source on GitHub →</a></p>
           <p class="fine center">Requires the free OBS Studio 30+ (macOS/Windows) or v4l2loopback (Linux) for the virtual camera.</p>
         </div>
       </div>
@@ -273,7 +274,9 @@
         <details><summary>Will it slow my computer down?</summary>
           <p>It's built to render 30 frames per second on a typical laptop. Plain webcam pass-through is very light. Background removal and face tracking use more CPU while they're on.</p></details>
         <details><summary>Is my video uploaded anywhere?</summary>
-          <p>No. Everything runs on your machine. Hacker Cam has no accounts, no analytics and no servers.</p></details>
+          <p>No. Everything runs on your machine, and there are no accounts. If you agree to share anonymous usage stats, the app sends event names such as "effect used: hologram", plus the app version and your OS. It never sends video, images, your name or anything you type, and you can switch it off in Options.</p></details>
+        <details><summary>Is it really free?</summary>
+          <p>Yes. Hacker Cam is open source under the MIT license: use it, change it and share it, including at work. If you build something on top of it, a link back is appreciated.</p></details>
         <details><summary>Can I trigger effects without leaving the call?</summary>
           <p>Yes. Global hotkeys (<kbd class="js-key" data-k="H">⌃⌥H</kbd> and friends) work while your call app is in front. On macOS, allow Input Monitoring once when asked.</p></details>
         <details><summary>Can I combine effects?</summary>
@@ -288,7 +291,7 @@
       <div class="wrap center">
         <h2>Nine rectangles. One of them is <span class="hl">unforgettable.</span></h2>
         <p class="lede">Make it yours.</p>
-        <a class="btn js-buy" href="#pricing">Get Hacker Cam · <span class="js-price">$29</span></a>
+        <a class="btn js-download" href="#download">Download free</a>
       </div>
     </section>
   </main>
@@ -296,7 +299,7 @@
   <footer class="foot">
     <div class="wrap foot__inner">
       <span><span class="brand__mark">&gt;_</span> Hacker Cam</span>
-      <span class="fine">Zoom, Microsoft Teams, Google Meet and other product names are trademarks of their owners. Hacker Cam is not affiliated with or endorsed by them. World map data: Natural Earth (public domain).</span>
+      <span class="fine">Zoom, Microsoft Teams, Google Meet and other product names are trademarks of their owners. Hacker Cam is not affiliated with or endorsed by them. World map data: Natural Earth (public domain). Hacker Cam is open source under the MIT license<span class="js-github-row" hidden> · <a class="js-github" href="#">GitHub</a></span>. This site counts visits with cookieless analytics.</span>
     </div>
   </footer>
 

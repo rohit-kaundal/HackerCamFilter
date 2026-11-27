@@ -26,6 +26,8 @@ mkdir -p "$PKG/DEBIAN" "$PKG/opt" "$PKG/usr/bin" "$PKG/usr/share/applications" "
 cp -R dist/HackerCam "$PKG/opt/hacker-cam"
 ln -s /opt/hacker-cam/HackerCam "$PKG/usr/bin/hacker-cam"
 cp packaging/icons/hacker_cam.png "$PKG/usr/share/pixmaps/hacker-cam.png"
+mkdir -p "$PKG/usr/share/doc/hacker-cam"
+cp LICENSE "$PKG/usr/share/doc/hacker-cam/copyright"
 cat > "$PKG/usr/share/applications/hacker-cam.desktop" <<EOF
 [Desktop Entry]
 Type=Application
