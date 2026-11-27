@@ -308,3 +308,22 @@ const track = (event, props) => { if (window.posthog && window.posthog.capture) 
     requestAnimationFrame(loop);
   }
 })();
+
+// Demo video lightbox: loads the video only when opened, pauses on close.
+(() => {
+  const modal = document.getElementById("video-modal");
+  const video = document.getElementById("demo-video");
+  if (!modal || !video || typeof modal.showModal !== "function") {
+    document.querySelectorAll(".js-video-open").forEach((b) => {
+      b.addEventListener("click", () => { if (video) window.location.href = video.querySelector("source").src; });
+    });
+    return;
+  }
+  document.querySelectorAll(".js-video-open").forEach((b) => b.addEventListener("click", () => {
+    modal.showModal();
+    video.play().catch(() => {});
+    track("demo_video_opened");
+  }));
+  modal.addEventListener("close", () => video.pause());
+  modal.addEventListener("click", (e) => { if (e.target === modal) modal.close(); });   // click on backdrop
+})();

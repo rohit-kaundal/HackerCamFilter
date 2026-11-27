@@ -14,7 +14,7 @@ og_description: "A cinematic hacker intro and live effects for every video call.
         <p class="lede">Same webcam. Same blurred bookshelf. Same <em>"can you hear me?"</em>. Your expertise is invisible until you've talked long enough to earn attention. Hacker Cam makes your camera do the introduction, so the room remembers you <strong>before you say a word</strong>.</p>
         <div class="cta-row">
           <a class="btn js-download" href="#download">Download free</a>
-          <a class="btn btn--ghost" href="#effects">See the effects ↓</a>
+          <button type="button" class="btn btn--ghost js-video-open" aria-haspopup="dialog">▶ Watch the 30-sec demo</button>
         </div>
         <p class="fine">Free and open source (MIT) · macOS, Windows &amp; Linux · Works with Zoom, Teams, Meet and any app with a camera picker</p>
       </div>
@@ -29,9 +29,18 @@ og_description: "A cinematic hacker intro and live effects for every video call.
           <span>Try it: type your name</span>
           <input id="demo-name" type="text" maxlength="22" placeholder="Your Name" autocomplete="off">
         </label>
-        <figcaption class="fine">A browser re-creation of the intro. The app renders it live, into your real call.</figcaption>
+        <figcaption class="fine">A browser re-creation of the intro. The app renders it live, into your real call. <button type="button" class="linkish js-video-open">Watch the real thing ▶</button></figcaption>
       </figure>
     </div>
+
+    <dialog class="video-modal" id="video-modal" aria-label="Hacker Cam demo video">
+      <form method="dialog"><button class="video-modal__close" aria-label="Close">✕</button></form>
+      <video id="demo-video" controls playsinline preload="none" poster="{{ '/assets/intro-granted.jpg' | relative_url }}" width="1280" height="720">
+        <source src="{{ '/assets/demo.mp4' | relative_url }}" type="video/mp4">
+        Your browser can't play this video. <a href="{{ '/assets/demo.mp4' | relative_url }}">Download it</a>.
+      </video>
+      <p class="fine">Rendered by the app itself: the intro, Global Trace and the away screen.</p>
+    </dialog>
   </section>
 
   <!-- 2. PROBLEM: name it precisely -->

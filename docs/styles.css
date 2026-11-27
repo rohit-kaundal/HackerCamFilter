@@ -329,3 +329,20 @@ section { padding: clamp(64px, 9vw, 120px) 0; border-top: 1px solid #0f1d0f; }
 .prose blockquote { margin-left: 0; padding: 10px 16px; border-left: 3px solid var(--green); background: var(--panel); border-radius: 0 8px 8px 0; color: var(--muted); }
 .prose hr { border: 0; border-top: 1px solid var(--line); margin: 2.4em 0; }
 .nav nav a[aria-current="page"] { color: var(--green); }
+
+/* Demo video lightbox */
+button.btn { cursor: pointer; }
+.linkish { background: none; border: 0; padding: 0; font: inherit; color: var(--green); text-decoration: underline; cursor: pointer; }
+.video-modal {
+  width: min(1100px, 94vw); padding: 14px; border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--panel); color: var(--text);
+}
+.video-modal::backdrop { background: rgba(0, 4, 0, .82); backdrop-filter: blur(3px); }
+.video-modal video { width: 100%; height: auto; display: block; border-radius: 8px; background: #000; }
+.video-modal .fine { margin: 10px 4px 0; }
+.video-modal form { display: flex; justify-content: flex-end; margin: 0 0 8px; }
+.video-modal__close {
+  background: transparent; color: var(--green); border: 1px solid var(--line); border-radius: 8px;
+  font: 700 1rem/1 var(--sans); padding: .45em .65em; cursor: pointer;
+}
+.video-modal__close:hover { border-color: var(--green); }
